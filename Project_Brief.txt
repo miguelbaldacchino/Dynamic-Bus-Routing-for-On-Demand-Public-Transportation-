@@ -1,0 +1,31 @@
+Title: Dynamic Bus Routing for On-Demand Public Transportation 
+Supervisor: Dr Bajada Josef 
+
+Main Subject Area: Discrete Optimization, Reinforcement Learning 
+
+Short Description of the proposed FYP: On-Demand Public Transportation 
+promises to improve the service levels of traditional public transportation by 
+enabling passengers to pre-book their journey and have the transportation vehicle 
+routes adapt dynamically to passenger demand. This approach could ensure that 
+passenger load and route lengths are distributed across vehicles, and pickup waiting 
+times and journey times are minimized. While this solution has been available for 
+small vehicles such as cabs, scaling it to larger capacity vehicles has the potential to 
+make public transportation more attractive for users, reduce traffic and pollution.  
+
+In this project, the student will develop a system which, given a number of pickup 
+and drop-off waypoints from different customers, will assign the right sequence of 
+waypoints for each public transportation vehicle. It will take advantage of 
+passengers making use of the same waypoints to optimize the routes of multiple 
+buses and minimize pickup waiting time and journey time.  
+
+A number of approaches will be investigated, including traditional discrete 
+optimization techniques such as Tabu search and Genetic Algorithms, together with 
+more recent experimental approaches, such as using Reinforcement Learning. The 
+results from this thesis will be a comprehensive analysis of the performance of 
+different algorithms as scenarios become more complex with more customer trips 
+and more vehicles to schedule accordingly. 
+
+Recommended Resources (including readings): Raza, Syed Mohib, Mohammad 
+Sajid, and Jagendra Singh. "Vehicle Routing Problem using Reinforcement Learning: 
+Recent Advancements." Advanced Machine Intelligence and Signal Processing. 
+Singapore: Springer Nature Singapore, 2022. 269-280. 
