@@ -62,6 +62,10 @@ def check_feasibility(
     capacity:     int      = vehicle_state["capacity"]
     ride_factor:  float    = system_state["ride_factor"]
     travel_time:  Callable = system_state["travel_time"]
+    # Safety margin absorbs timing drift from congestion transitions
+    # between planning and execution.  Default 0 for callers that don't
+    # set it (e.g. unit tests).
+    ride_margin:  float    = system_state.get("ride_time_margin", 0.0)
 
     # Pre-scan: identify already-onboard passengers (DO present, PU already served).
     pu_ids          = {s.req_id for s in plan if s.kind == "PU"}
@@ -102,7 +106,7 @@ def check_feasibility(
             if stop.req_id in pickup_times:
                 ride_time = current_time - pickup_times[stop.req_id]
                 direct    = system_state["direct_times"].get(stop.req_id)
-                if direct and ride_time > ride_factor * direct:
+                if direct and ride_time > ride_factor * direct - ride_margin:
                     return False
 
             onboard -= 1

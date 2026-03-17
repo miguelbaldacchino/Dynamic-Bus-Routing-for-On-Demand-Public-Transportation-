@@ -58,9 +58,13 @@ def vehicle_process(
         stop = vehicle.plan.pop(0)
 
         # --- Mark in-transit BEFORE yielding ---
-        # This lets the dispatcher see the committed stop when it runs
-        # during our travel timeout.
-        vehicle.in_transit_stop = stop
+        # Record departure time and ETA so the dispatcher can reconstruct
+        # accurate timing for the feasibility checker.
+        vehicle.in_transit_stop        = stop
+        vehicle.in_transit_depart_time = env.now
+        vehicle.in_transit_eta         = env.now + travel_fn(
+            vehicle.location, stop.node, env.now
+        )
 
         if verbose:
             print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
@@ -71,8 +75,10 @@ def vehicle_process(
         yield env.timeout(travel)
 
         # --- Arrived: update location, clear in-transit ---
-        vehicle.location = stop.node
-        vehicle.in_transit_stop = None
+        vehicle.location               = stop.node
+        vehicle.in_transit_stop        = None
+        vehicle.in_transit_depart_time = None
+        vehicle.in_transit_eta         = None
 
         # Wait at pickup if vehicle arrives before earliest time
         if stop.kind == "PU" and stop.earliest and env.now < stop.earliest:
@@ -232,11 +238,12 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
     }
 
     system_state = {
-        "travel_time":  travel_fn,
-        "ride_factor":  cfg.ride_factor,
-        "direct_times": direct_times,
-        "coords":       coords,
-        "max_wait":     cfg.max_wait,
+        "travel_time":      travel_fn,
+        "ride_factor":      cfg.ride_factor,
+        "direct_times":     direct_times,
+        "coords":           coords,
+        "max_wait":         cfg.max_wait,
+        "ride_time_margin": cfg.ride_time_margin,
     }
 
     print(f"\nSimulation: {sim_time_to_clock(0)} - {sim_time_to_clock(cfg.horizon)}")

@@ -98,7 +98,11 @@ class Vehicle:
     # --- In-transit tracking (set by vehicle_process) ---
     # When the vehicle pops a stop and begins traveling, it records the
     # stop here.  The dispatcher uses this to reconstruct the true state.
-    in_transit_stop:  Optional[object] = field(default=None, repr=False)
+    in_transit_stop:           Optional[object] = field(default=None, repr=False)
+    # Time the vehicle departed toward the in-transit stop
+    in_transit_depart_time:    Optional[float]  = field(default=None, repr=False)
+    # Expected arrival time at the in-transit stop
+    in_transit_eta:            Optional[float]  = field(default=None, repr=False)
 
     # SimPy Event — succeeded when the dispatcher adds stops to an idle
     # vehicle.  Replaced by vehicle_process after each wake.
@@ -109,23 +113,32 @@ class Vehicle:
         """
         Snapshot used by the dispatcher and feasibility checker.
 
-        If the vehicle is mid-travel (in_transit_stop is set), the stop
-        is prepended to the plan so the feasibility checker sees the
-        committed route.  vehicle_state["location"] is always the node
-        the vehicle departed from (its last known position), and
-        current_time is env.now — the feasibility checker will compute
-        travel(location -> in_transit_stop.node -> ...) which correctly
-        accounts for the in-progress leg.
+        If the vehicle is mid-travel (in_transit_stop is set), we
+        provide an accurate starting state:
+          - location = departure node (the node the vehicle left from)
+          - time = in_transit_depart_time (when the vehicle actually left)
+        This ensures travel(departure, in_transit_stop.node, depart_time)
+        matches the real travel time the vehicle is experiencing, so the
+        feasibility checker's time propagation aligns with actual execution.
+
+        If in_transit_depart_time is not set (shouldn't happen, but
+        defensive), falls back to current_time.
         """
         if self.in_transit_stop is not None:
             committed_plan = [self.in_transit_stop] + list(self.plan)
+            # Use the actual departure time so the feasibility checker
+            # computes the same travel time the vehicle is experiencing.
+            start_time = (self.in_transit_depart_time
+                          if self.in_transit_depart_time is not None
+                          else current_time)
         else:
             committed_plan = list(self.plan)
+            start_time = current_time
 
         return {
             "capacity":       self.capacity,
             "location":       self.location,
-            "time":           current_time,
+            "time":           start_time,
             "onboard_count":  len(self.onboard),
             "plan_snapshot":  committed_plan,
         }
