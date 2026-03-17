@@ -95,6 +95,11 @@ class Vehicle:
     onboard:          set   = field(default_factory=set)    # req_ids currently onboard
     committed_stops:  int   = 0    # Leading stops the dispatcher must not reorder
 
+    # Maps req_id -> actual pickup time for passengers currently onboard.
+    # Used by the feasibility checker to enforce ride-time constraints
+    # on already-boarded passengers when new stops are inserted.
+    onboard_pickup_times: dict = field(default_factory=dict)
+
     # --- In-transit tracking (set by vehicle_process) ---
     # When the vehicle pops a stop and begins traveling, it records the
     # stop here.  The dispatcher uses this to reconstruct the true state.
@@ -136,9 +141,10 @@ class Vehicle:
             start_time = current_time
 
         return {
-            "capacity":       self.capacity,
-            "location":       self.location,
-            "time":           start_time,
-            "onboard_count":  len(self.onboard),
-            "plan_snapshot":  committed_plan,
+            "capacity":              self.capacity,
+            "location":              self.location,
+            "time":                  start_time,
+            "onboard_count":         len(self.onboard),
+            "plan_snapshot":         committed_plan,
+            "onboard_pickup_times":  dict(self.onboard_pickup_times),
         }

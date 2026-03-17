@@ -103,6 +103,7 @@ def vehicle_process(
                 )
 
             vehicle.onboard.add(stop.req_id)
+            vehicle.onboard_pickup_times[stop.req_id] = env.now
             metrics.mark_pickup(stop.req_id, env.now)
 
             if stop.req_id in requests:
@@ -120,6 +121,7 @@ def vehicle_process(
         # ----------------------------------------------------------------
         elif stop.kind == "DO":
             vehicle.onboard.discard(stop.req_id)
+            vehicle.onboard_pickup_times.pop(stop.req_id, None)
             metrics.mark_dropoff(stop.req_id, env.now)
 
             if stop.req_id in requests:

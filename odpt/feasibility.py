@@ -72,6 +72,11 @@ def check_feasibility(
     do_ids          = {s.req_id for s in plan if s.kind == "DO"}
     already_onboard = do_ids - pu_ids
 
+    # Actual pickup times for passengers already onboard (recorded by
+    # vehicle_process when the PU was served).  Used to enforce ride-time
+    # constraints on onboard passengers whose PU is no longer in the plan.
+    onboard_pickup_times: dict = vehicle_state.get("onboard_pickup_times", {})
+
     # Pre-load capacity with passengers already in the vehicle.
     onboard = vehicle_state.get("onboard_count", len(already_onboard))
 
@@ -102,9 +107,17 @@ def check_feasibility(
             if stop.req_id not in pu_ids and stop.req_id not in already_onboard:
                 return False
 
-            # Ride-time check — only when PU time is available in this snapshot
+            # Ride-time check — PU in this plan snapshot
             if stop.req_id in pickup_times:
                 ride_time = current_time - pickup_times[stop.req_id]
+                direct    = system_state["direct_times"].get(stop.req_id)
+                if direct and ride_time > ride_factor * direct - ride_margin:
+                    return False
+
+            # Ride-time check — already-onboard passenger (PU was served earlier)
+            elif stop.req_id in onboard_pickup_times:
+                actual_pu_time = onboard_pickup_times[stop.req_id]
+                ride_time = current_time - actual_pu_time
                 direct    = system_state["direct_times"].get(stop.req_id)
                 if direct and ride_time > ride_factor * direct - ride_margin:
                     return False
@@ -130,8 +143,8 @@ def evaluate_plan(
     """
     Weighted cost:  α·distance + β·wait_time + γ·ride_time
 
-    Already-onboard passengers (DO present, PU already served) contribute
-    travel distance only — their ride-time cost was counted when they boarded.
+    Already-onboard passengers now contribute their remaining ride time
+    (from their actual pickup to the estimated dropoff in this plan).
 
     Parameters
     ----------
@@ -139,6 +152,7 @@ def evaluate_plan(
     """
     alpha, beta, gamma = weights
     travel_time: Callable = system_state["travel_time"]
+    onboard_pickup_times: dict = vehicle_state.get("onboard_pickup_times", {})
 
     current_node = vehicle_state["location"]
     current_time = vehicle_state["time"]
@@ -160,7 +174,11 @@ def evaluate_plan(
 
         elif stop.kind == "DO":
             if stop.req_id in pickup_times:
+                # PU was in this plan snapshot — full ride time known
                 total_ride += current_time - pickup_times[stop.req_id]
+            elif stop.req_id in onboard_pickup_times:
+                # Already-onboard passenger — ride from actual PU to estimated DO
+                total_ride += current_time - onboard_pickup_times[stop.req_id]
 
         current_time += stop.service
         current_node  = stop.node
