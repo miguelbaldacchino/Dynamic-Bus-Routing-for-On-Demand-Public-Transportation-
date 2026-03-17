@@ -1,14 +1,25 @@
 # main.py
 # SimPy simulation — full operating day (07:00 to 18:00).
 # All times in MINUTES.  Simulation t=0 = 07:00.
-
+#
+# Fixes applied
+# -------------
+# - vehicle_process sets vehicle.in_transit_stop before yielding for
+#   travel, and clears it after arrival.  This gives the dispatcher an
+#   accurate view of the vehicle's committed state.
+# - Idle vehicles wait on a SimPy Event (wake_event) instead of polling
+#   every 1 minute.  The dispatcher succeeds the event when it adds
+#   stops to an idle vehicle.
+# - Stochastic arrivals: when cfg.stochastic_arrivals is True, inter-
+#   arrival times are drawn from Exponential(mean=arrival_rate(t)).
+# - Horizon corrected to 660 (18:00) in config; simulation uses cfg.horizon.
 
 import simpy
 import random
 
 from models import Request, Vehicle, RequestStatus
 from travel import DEFAULT_COORDS, make_travel_fn
-from dispatcher import greedy_insert, sa_improve, print_plans
+from dispatcher import greedy_insert, sa_improve, print_plans, build_sa_policy
 from config import SimulationConfig, arrival_rate
 from metrics import MetricsCollector
 
@@ -37,11 +48,19 @@ def vehicle_process(
         print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} ready at depot")
 
     while True:
+        # --- Wait for work (event-driven, no polling) ---
         if not vehicle.plan:
-            yield env.timeout(1)
+            vehicle.wake_event = env.event()
+            yield vehicle.wake_event
+            # Event was succeeded by the dispatcher; re-check plan
             continue
 
         stop = vehicle.plan.pop(0)
+
+        # --- Mark in-transit BEFORE yielding ---
+        # This lets the dispatcher see the committed stop when it runs
+        # during our travel timeout.
+        vehicle.in_transit_stop = stop
 
         if verbose:
             print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
@@ -50,7 +69,10 @@ def vehicle_process(
         travel = travel_fn(vehicle.location, stop.node, env.now)
         metrics.log_distance(travel)
         yield env.timeout(travel)
+
+        # --- Arrived: update location, clear in-transit ---
         vehicle.location = stop.node
+        vehicle.in_transit_stop = None
 
         # Wait at pickup if vehicle arrives before earliest time
         if stop.kind == "PU" and stop.earliest and env.now < stop.earliest:
@@ -78,7 +100,7 @@ def vehicle_process(
             metrics.mark_pickup(stop.req_id, env.now)
 
             if stop.req_id in requests:
-                req            = requests[stop.req_id]
+                req             = requests[stop.req_id]
                 req.pickup_time = env.now
                 req.status      = RequestStatus.ONBOARD
 
@@ -95,7 +117,7 @@ def vehicle_process(
             metrics.mark_dropoff(stop.req_id, env.now)
 
             if stop.req_id in requests:
-                req             = requests[stop.req_id]
+                req              = requests[stop.req_id]
                 req.dropoff_time = env.now
                 req.status       = RequestStatus.COMPLETED
 
@@ -135,7 +157,17 @@ def request_generator(
 ) -> None:
 
     for i in range(1, cfg.n_requests + 1):
-        yield env.timeout(arrival_rate(env.now, cfg))
+        # --- Inter-arrival time ---
+        mean_gap = arrival_rate(env.now, cfg)
+        if cfg.stochastic_arrivals:
+            gap = random.expovariate(1.0 / mean_gap)
+        else:
+            gap = mean_gap
+        yield env.timeout(gap)
+
+        # Don't generate requests past service horizon
+        if env.now >= cfg.horizon:
+            break
 
         pu = random.randint(1, cfg.n_nodes)
         do = random.randint(1, cfg.n_nodes)
@@ -187,6 +219,9 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
     requests:     dict = {}
     metrics       = MetricsCollector()
 
+    # Build SA policy from config
+    build_sa_policy(cfg)
+
     vehicles = {
         f"Bus-{k+1}": Vehicle(
             id       = f"Bus-{k+1}",
@@ -206,9 +241,14 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
 
     print(f"\nSimulation: {sim_time_to_clock(0)} - {sim_time_to_clock(cfg.horizon)}")
     print(f"Fleet     : {cfg.fleet_size} buses x capacity {cfg.vehicle_capacity}")
-    print(f"Demand    : {cfg.n_requests} requests, profile={cfg.demand_profile}")
+    print(f"Demand    : {cfg.n_requests} requests, "
+          f"profile={cfg.demand_profile}, "
+          f"stochastic={cfg.stochastic_arrivals}")
     print(f"Constraints: max_wait={cfg.max_wait} min, "
           f"ride_factor={cfg.ride_factor}")
+    print(f"SA params : T0={cfg.sa_initial_temp}, cool={cfg.sa_cooling_rate}, "
+          f"iters={cfg.sa_iterations}/vehicle, "
+          f"time={cfg.sa_time_limit}s/vehicle")
     print("-" * 60)
 
     for vehicle in vehicles.values():

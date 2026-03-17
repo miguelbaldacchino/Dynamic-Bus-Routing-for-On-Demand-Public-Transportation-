@@ -18,11 +18,17 @@
 # evaluate_plan: already-onboard DO stops contribute travel distance only.
 #   Their ride-time cost was recorded at the epoch when they boarded.
 #
-# New in this version
-# -------------------
-# - stop.latest enforced for pickup upper time window
-# - vehicle_state["onboard_count"] pre-loads committed passengers
-#   (set by Vehicle.to_state_dict when Vehicle.onboard is non-empty)
+# In-transit stop handling
+# ------------------------
+# When the vehicle is mid-travel, to_state_dict() prepends the in-transit
+# stop to the plan.  The feasibility checker then sees:
+#   [in_transit_stop, ...remaining plan...]
+# starting from the vehicle's departure node.  This gives correct travel
+# time estimates because travel(departure_node -> in_transit_stop.node)
+# accounts for the full leg, and subsequent stops chain from there.
+#
+# The dispatcher must NOT insert new stops before the in-transit stop
+# (it is committed).  This is enforced by the dispatcher, not here.
 
 from __future__ import annotations
 from typing import Callable
@@ -63,8 +69,6 @@ def check_feasibility(
     already_onboard = do_ids - pu_ids
 
     # Pre-load capacity with passengers already in the vehicle.
-    # vehicle_state["onboard_count"] is set by Vehicle.to_state_dict();
-    # fall back to len(already_onboard) for callers that don't set it.
     onboard = vehicle_state.get("onboard_count", len(already_onboard))
 
     pickup_times: dict[str, float] = {}
@@ -152,9 +156,7 @@ def evaluate_plan(
 
         elif stop.kind == "DO":
             if stop.req_id in pickup_times:
-                # PU was in this plan snapshot — full ride time known
                 total_ride += current_time - pickup_times[stop.req_id]
-            # else: already-onboard passenger — skip (cost already counted)
 
         current_time += stop.service
         current_node  = stop.node

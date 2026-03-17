@@ -1,11 +1,15 @@
 # models.py
 # Shared data structures used across the simulation.
 #
-# Changes from previous version
-# ------------------------------
-# Request  — added status, assignment_time, pickup_time, dropoff_time
-# Vehicle  — added onboard set and committed_stops counter
-# Stop     — added latest (upper time window bound)
+# Fixes applied
+# -------------
+# - Vehicle tracks in_transit_stop so the dispatcher can reconstruct
+#   accurate vehicle state even when the vehicle is mid-travel between
+#   SimPy yield points.
+# - Vehicle.wake_event: SimPy Event used to wake idle vehicles when a
+#   new stop is assigned (replaces 1-minute polling).
+# - to_state_dict() includes the in-transit stop in the plan snapshot
+#   so the feasibility checker sees the full committed route.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -91,16 +95,37 @@ class Vehicle:
     onboard:          set   = field(default_factory=set)    # req_ids currently onboard
     committed_stops:  int   = 0    # Leading stops the dispatcher must not reorder
 
+    # --- In-transit tracking (set by vehicle_process) ---
+    # When the vehicle pops a stop and begins traveling, it records the
+    # stop here.  The dispatcher uses this to reconstruct the true state.
+    in_transit_stop:  Optional[object] = field(default=None, repr=False)
+
+    # SimPy Event — succeeded when the dispatcher adds stops to an idle
+    # vehicle.  Replaced by vehicle_process after each wake.
+    # Initialised in main().
+    wake_event: Optional[object] = field(default=None, repr=False)
+
     def to_state_dict(self, current_time: float) -> dict:
         """
         Snapshot used by the dispatcher and feasibility checker.
-        onboard_count reflects passengers already picked up but not yet
-        dropped off — the feasibility checker pre-loads this into the
-        capacity counter.
+
+        If the vehicle is mid-travel (in_transit_stop is set), the stop
+        is prepended to the plan so the feasibility checker sees the
+        committed route.  vehicle_state["location"] is always the node
+        the vehicle departed from (its last known position), and
+        current_time is env.now — the feasibility checker will compute
+        travel(location -> in_transit_stop.node -> ...) which correctly
+        accounts for the in-progress leg.
         """
+        if self.in_transit_stop is not None:
+            committed_plan = [self.in_transit_stop] + list(self.plan)
+        else:
+            committed_plan = list(self.plan)
+
         return {
-            "capacity":      self.capacity,
-            "location":      self.location,
-            "time":          current_time,
-            "onboard_count": len(self.onboard),
+            "capacity":       self.capacity,
+            "location":       self.location,
+            "time":           current_time,
+            "onboard_count":  len(self.onboard),
+            "plan_snapshot":  committed_plan,
         }

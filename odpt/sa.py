@@ -6,13 +6,21 @@
 # returns a dict of {vehicle_id: improved_plan} for improved vehicles.
 # It never touches SimPy or live vehicle objects.
 #
+# Fixes applied
+# -------------
+# - Per-vehicle time budget (start_time reset per vehicle, not shared).
+# - Inter-vehicle relocate operator: moves a request PU+DO pair from
+#   one vehicle to another, enabling cross-vehicle optimisation.
+# - Reduced deepcopy: neighbour operators use list() + shallow copies
+#   where possible; only the best solution is deep-copied.
+# - n_committed: operators do not touch committed (in-transit) stops.
+#
 # Neighbour operators
 # -------------------
-# _pair_relocate : remove one request's PU+DO and re-insert at new i<j.
-#                  Preserves precedence by construction.  Primary operator.
-# _pair_swap     : swap the four stop positions of two requests (PU-a↔PU-b,
-#                  DO-a↔DO-b).  Works on stop indices directly — no req_id
-#                  mutation, no double-deepcopy bug from previous version.
+# _pair_relocate     : remove one request's PU+DO and re-insert at new
+#                      positions i<j within the same vehicle.
+# _pair_swap         : swap positions of two requests' PU+DO pairs.
+# _inter_vehicle_move: move a request from one vehicle to another.
 
 import math
 import random
@@ -27,10 +35,10 @@ class SAPolicy:
 
     def __init__(
         self,
-        initial_temp:        float = 10_000.0,
-        cooling_rate:        float = 0.997,
-        iterations:          int   = 8_000,
-        decision_time_limit: float = 0.5,
+        initial_temp:        float = 5_000.0,
+        cooling_rate:        float = 0.995,
+        iterations:          int   = 5_000,
+        decision_time_limit: float = 0.3,
     ):
         self.initial_temp        = initial_temp
         self.cooling_rate        = cooling_rate
@@ -45,67 +53,83 @@ class SAPolicy:
         self,
         system_state: dict,
         feasibility_checker: Callable,
-        weights: tuple = (1.0, 2.0, 3.0),
+        weights: tuple = (1.0, 2.0, 2.5),
     ) -> dict:
         """
-        Propose improved plans for vehicles that have at least 2 complete
-        request pairs (4 stops).
+        Propose improved plans for vehicles.
+
+        Two-phase approach:
+          Phase 1: intra-vehicle SA for each vehicle with >=4 stops.
+          Phase 2: inter-vehicle SA across pairs of vehicles.
+
+        Each vehicle / pair gets its own independent time budget.
 
         Returns
         -------
-        dict  vehicle_id -> improved plan  (only improved vehicles included)
+        dict  vehicle_id -> improved plan  (only improved vehicles)
         """
-        start_time = time.time()
-        new_plans  = {}
+        new_plans = {}
 
+        # Phase 1 — intra-vehicle improvement
         for vehicle_id, vehicle in system_state["vehicles"].items():
             current_plan = vehicle["plan"]
+            n_committed  = vehicle.get("n_committed", 0)
 
-            if len(current_plan) < 4:
+            # Need at least 2 movable request pairs (4 stops after committed)
+            if len(current_plan) - n_committed < 4:
                 continue
 
-            improved = self._run_sa(
-                vehicle_id,
-                current_plan,
-                system_state,
-                feasibility_checker,
-                weights,
-                start_time,
+            improved = self._run_sa_intra(
+                vehicle_id, current_plan, n_committed,
+                system_state, feasibility_checker, weights,
             )
-
             if improved is not None:
                 new_plans[vehicle_id] = improved
+
+        # Phase 2 — inter-vehicle moves
+        vehicle_ids = list(system_state["vehicles"].keys())
+        if len(vehicle_ids) >= 2:
+            inter_results = self._run_sa_inter(
+                vehicle_ids, system_state, feasibility_checker, weights,
+                existing_improvements=new_plans,
+            )
+            new_plans.update(inter_results)
 
         return new_plans
 
     # ------------------------------------------------------------------
-    # Neighbour operators
+    # Helper: movable requests in a plan
     # ------------------------------------------------------------------
 
-    def _requests_in_plan(self, plan: list) -> list:
+    def _requests_in_plan(self, plan: list, n_committed: int = 0) -> list:
         """
-        Return req_ids that have BOTH a PU and a DO stop in *plan*.
-        Guards against partially-served requests (PU already popped by
-        vehicle_process).
+        Return req_ids that have BOTH a PU and DO in the movable portion
+        of the plan (after n_committed leading stops).
         """
-        pu_ids = {s.req_id for s in plan if s.kind == "PU"}
-        do_ids = {s.req_id for s in plan if s.kind == "DO"}
+        movable = plan[n_committed:]
+        pu_ids = {s.req_id for s in movable if s.kind == "PU"}
+        do_ids = {s.req_id for s in movable if s.kind == "DO"}
         return list(pu_ids & do_ids)
 
-    def _pair_relocate(self, plan: list):
+    # ------------------------------------------------------------------
+    # Intra-vehicle neighbour operators
+    # ------------------------------------------------------------------
+
+    def _pair_relocate(self, plan: list, n_committed: int):
         """
-        Remove one request's PU+DO pair and re-insert at new positions i<j.
-        Precedence guaranteed by construction.
+        Remove one request's PU+DO pair from the movable portion and
+        re-insert at new random positions i<j (after committed prefix).
         """
-        candidates = self._requests_in_plan(plan)
+        candidates = self._requests_in_plan(plan, n_committed)
         if not candidates:
             return None
 
-        req     = random.choice(candidates)
-        pu_stop = None
-        do_stop = None
+        req = random.choice(candidates)
+        committed = plan[:n_committed]
+        movable   = plan[n_committed:]
 
-        for s in plan:
+        pu_stop = do_stop = None
+        for s in movable:
             if s.req_id == req and s.kind == "PU":
                 pu_stop = s
             elif s.req_id == req and s.kind == "DO":
@@ -114,34 +138,33 @@ class SAPolicy:
         if pu_stop is None or do_stop is None:
             return None
 
-        stripped = [s for s in plan if s.req_id != req]
+        stripped = [s for s in movable if s.req_id != req]
         n = len(stripped)
 
         i = random.randint(0, n)
         j = random.randint(i + 1, n + 1)
 
-        new_plan = deepcopy(stripped)
-        new_plan.insert(i, deepcopy(pu_stop))
-        new_plan.insert(j, deepcopy(do_stop))
-        return new_plan
+        new_movable = list(stripped)
+        new_movable.insert(i, pu_stop)
+        new_movable.insert(j, do_stop)
+        return committed + new_movable
 
-    def _pair_swap(self, plan: list):
+    def _pair_swap(self, plan: list, n_committed: int):
         """
-        Swap the stop-list positions of two requests' PU+DO pairs.
-
-        Finds the four indices [pu_a, do_a, pu_b, do_b] and swaps the
-        Stop objects at those positions directly.  No req_id mutation —
-        the Stop objects (with their node/service/earliest data) simply
-        move to each other's list positions.
+        Swap the positions of two requests' PU+DO pairs within the
+        movable portion of the plan.
         """
-        candidates = self._requests_in_plan(plan)
+        candidates = self._requests_in_plan(plan, n_committed)
         if len(candidates) < 2:
             return None
 
         req_a, req_b = random.sample(candidates, 2)
 
+        # Work on the full plan but only swap within movable portion
         idx_pu_a = idx_do_a = idx_pu_b = idx_do_b = None
         for i, s in enumerate(plan):
+            if i < n_committed:
+                continue
             if s.req_id == req_a:
                 if s.kind == "PU":
                     idx_pu_a = i
@@ -156,48 +179,42 @@ class SAPolicy:
         if any(x is None for x in [idx_pu_a, idx_do_a, idx_pu_b, idx_do_b]):
             return None
 
-        new_plan = deepcopy(plan)
-        new_plan[idx_pu_a], new_plan[idx_pu_b] = (
-            deepcopy(plan[idx_pu_b]),
-            deepcopy(plan[idx_pu_a]),
-        )
-        new_plan[idx_do_a], new_plan[idx_do_b] = (
-            deepcopy(plan[idx_do_b]),
-            deepcopy(plan[idx_do_a]),
-        )
+        new_plan = list(plan)
+        new_plan[idx_pu_a], new_plan[idx_pu_b] = plan[idx_pu_b], plan[idx_pu_a]
+        new_plan[idx_do_a], new_plan[idx_do_b] = plan[idx_do_b], plan[idx_do_a]
         return new_plan
 
-    def _neighbour(self, plan: list):
-        complete = self._requests_in_plan(plan)
+    def _neighbour_intra(self, plan: list, n_committed: int):
+        complete = self._requests_in_plan(plan, n_committed)
         if len(complete) >= 2:
             op = random.choice([self._pair_relocate, self._pair_swap])
         else:
-            op = self._pair_relocate  # only 1 complete pair, swap is impossible
-        return op(plan)
+            op = self._pair_relocate
+        return op(plan, n_committed)
 
     # ------------------------------------------------------------------
-    # Core SA loop
+    # Intra-vehicle SA loop
     # ------------------------------------------------------------------
 
-    def _run_sa(
+    def _run_sa_intra(
         self,
         vehicle_id:          str,
         initial_plan:        list,
+        n_committed:         int,
         system_state:        dict,
         feasibility_checker: Callable,
         weights:             tuple,
-        start_time:          float,
     ):
         """
-        Run SA for one vehicle.
+        Run SA for one vehicle (intra-vehicle moves only).
         Returns the best feasible plan found, or None if no improvement.
+        Each call gets its own fresh time budget.
         """
-        print(f"  SA evaluating {vehicle_id} ({len(initial_plan)} stops)")
-
         vehicle_state = system_state["vehicles"][vehicle_id]
+        start_time    = time.time()  # per-vehicle budget
 
-        current      = deepcopy(initial_plan)
-        best         = deepcopy(initial_plan)
+        current      = list(initial_plan)
+        best         = list(initial_plan)
         current_cost = evaluate_plan(current, vehicle_state, system_state, weights)
         best_cost    = current_cost
         temp         = self.initial_temp
@@ -206,15 +223,16 @@ class SAPolicy:
             if time.time() - start_time > self.decision_time_limit:
                 break
 
-            candidate = self._neighbour(current)
+            candidate = self._neighbour_intra(current, n_committed)
             if candidate is None:
                 continue
 
             if not feasibility_checker(candidate, vehicle_state, system_state):
                 continue
 
-            candidate_cost = evaluate_plan(candidate, vehicle_state,
-                                           system_state, weights)
+            candidate_cost = evaluate_plan(
+                candidate, vehicle_state, system_state, weights
+            )
             delta = candidate_cost - current_cost
 
             if delta < 0 or random.random() < math.exp(-delta / max(temp, 1e-10)):
@@ -222,19 +240,156 @@ class SAPolicy:
                 current_cost = candidate_cost
 
                 if current_cost < best_cost:
-                    best      = deepcopy(candidate)
+                    best      = list(candidate)
                     best_cost = current_cost
 
             temp *= self.cooling_rate
             if temp < 1e-4:
                 break
 
-        initial_cost = evaluate_plan(initial_plan, vehicle_state,
-                                     system_state, weights)
+        initial_cost = evaluate_plan(
+            initial_plan, vehicle_state, system_state, weights
+        )
         if best_cost < initial_cost:
-            print(f"    SA improved {vehicle_id}: {initial_cost:.2f} -> {best_cost:.2f}")
             return best
-
-        print(f"    SA no improvement for {vehicle_id} "
-              f"(best={best_cost:.2f}, initial={initial_cost:.2f})")
         return None
+
+    # ------------------------------------------------------------------
+    # Inter-vehicle SA
+    # ------------------------------------------------------------------
+
+    def _run_sa_inter(
+        self,
+        vehicle_ids:            list,
+        system_state:           dict,
+        feasibility_checker:    Callable,
+        weights:                tuple,
+        existing_improvements:  dict,
+    ) -> dict:
+        """
+        Try moving requests between vehicle pairs.
+        Uses a quick random-sampling approach with SA acceptance.
+        Returns dict of vehicle_id -> improved plan.
+        """
+        start_time = time.time()
+        improvements = {}
+
+        # Build working copies of plans (incorporate any intra improvements)
+        working = {}
+        for vid in vehicle_ids:
+            if vid in existing_improvements:
+                working[vid] = list(existing_improvements[vid])
+            else:
+                working[vid] = list(system_state["vehicles"][vid]["plan"])
+
+        # Quick inter-vehicle pass
+        n_attempts = min(self.iterations // 2, 2000)
+        temp = self.initial_temp
+
+        for _ in range(n_attempts):
+            if time.time() - start_time > self.decision_time_limit:
+                break
+
+            # Pick a source vehicle with movable requests
+            src_vid = random.choice(vehicle_ids)
+            src_info = system_state["vehicles"][src_vid]
+            n_committed_src = src_info.get("n_committed", 0)
+            movable = self._requests_in_plan(working[src_vid], n_committed_src)
+
+            if not movable:
+                continue
+
+            # Pick a destination vehicle (different from source)
+            dst_vid = random.choice(vehicle_ids)
+            if dst_vid == src_vid:
+                continue
+
+            dst_info = system_state["vehicles"][dst_vid]
+            n_committed_dst = dst_info.get("n_committed", 0)
+
+            # Pick a request to move
+            req = random.choice(movable)
+
+            # Remove PU+DO from source
+            src_committed = working[src_vid][:n_committed_src]
+            src_movable   = working[src_vid][n_committed_src:]
+            pu_stop = do_stop = None
+            for s in src_movable:
+                if s.req_id == req and s.kind == "PU":
+                    pu_stop = s
+                elif s.req_id == req and s.kind == "DO":
+                    do_stop = s
+
+            if pu_stop is None or do_stop is None:
+                continue
+
+            new_src_movable = [s for s in src_movable if s.req_id != req]
+            new_src = src_committed + new_src_movable
+
+            # Insert into destination at random positions
+            dst_committed = working[dst_vid][:n_committed_dst]
+            dst_movable   = working[dst_vid][n_committed_dst:]
+            n_dst = len(dst_movable)
+
+            i = random.randint(0, n_dst)
+            j = random.randint(i + 1, n_dst + 1)
+
+            new_dst_movable = list(dst_movable)
+            new_dst_movable.insert(i, pu_stop)
+            new_dst_movable.insert(j, do_stop)
+            new_dst = dst_committed + new_dst_movable
+
+            # Check feasibility of both new plans
+            if not feasibility_checker(new_src, src_info, system_state):
+                continue
+            if not feasibility_checker(new_dst, dst_info, system_state):
+                continue
+
+            # Compute cost delta (sum of both vehicles)
+            old_cost = (
+                evaluate_plan(working[src_vid], src_info, system_state, weights)
+                + evaluate_plan(working[dst_vid], dst_info, system_state, weights)
+            )
+            new_cost = (
+                evaluate_plan(new_src, src_info, system_state, weights)
+                + evaluate_plan(new_dst, dst_info, system_state, weights)
+            )
+            delta = new_cost - old_cost
+
+            if delta < 0 or random.random() < math.exp(-delta / max(temp, 1e-10)):
+                working[src_vid] = new_src
+                working[dst_vid] = new_dst
+                improvements[src_vid] = new_src
+                improvements[dst_vid] = new_dst
+
+            temp *= self.cooling_rate
+            if temp < 1e-4:
+                break
+
+        # Compare total cost of ALL touched vehicles: return all or none.
+        # Inter-vehicle moves are coupled — one vehicle's cost may rise
+        # while the other's falls.  Only the combined delta matters.
+        touched = set(improvements.keys())
+        if not touched:
+            return {}
+
+        old_total = sum(
+            evaluate_plan(
+                system_state["vehicles"][vid]["plan"],
+                system_state["vehicles"][vid],
+                system_state, weights,
+            )
+            for vid in touched
+        )
+        new_total = sum(
+            evaluate_plan(
+                working[vid],
+                system_state["vehicles"][vid],
+                system_state, weights,
+            )
+            for vid in touched
+        )
+
+        if new_total < old_total:
+            return {vid: working[vid] for vid in touched}
+        return {}

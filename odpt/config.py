@@ -1,6 +1,13 @@
 # config.py
 # All time values are in MINUTES.
 # Simulation time 0 = 07:00.  Horizon 660 = 18:00.
+#
+# Fixes applied
+# -------------
+# - horizon corrected: 660 min (was 800, which gave 20:20 not 18:00)
+# - stochastic_arrivals flag: enables exponential inter-arrival times
+# - SA time limit is now per-vehicle, not shared across fleet
+# - SA iterations tuned down (vehicles have small plans; fewer wasted iters)
 
 from __future__ import annotations
 from dataclasses import dataclass
@@ -12,13 +19,13 @@ class SimulationConfig:
     seed:             int   = 42
 
     # ---- Simulation horizon (minutes, 0=07:00) ----
-    horizon:          float = 800.0      # 18:00
+    horizon:          float = 660.0      # 18:00 (was 800 — incorrect)
 
     # ---- Demand ----
-    # 220 requests over 660 min with bimodal profile gives realistic load
     n_requests:       int   = 220
-    inter_arrival:    float = 3.0        # minutes between requests (baseline)
+    inter_arrival:    float = 3.0        # minutes between requests (baseline mean)
     demand_profile:   str   = "bimodal"  # "uniform" | "peak" | "bimodal"
+    stochastic_arrivals: bool = True     # True = Poisson (exponential gaps)
     n_nodes:          int   = 15         # nodes 1-15 available (0 = depot)
 
     # ---- Fleet ----
@@ -37,19 +44,22 @@ class SimulationConfig:
     policy:           str   = "greedy+sa"
 
     # ---- SA hyperparameters ----
-    sa_initial_temp:  float = 10_000.0
-    sa_cooling_rate:  float = 0.997
-    sa_iterations:    int   = 20_000
-    sa_time_limit:    float = 3.0  # seconds per decision
+    sa_initial_temp:  float = 5_000.0
+    sa_cooling_rate:  float = 0.995
+    sa_iterations:    int   = 5_000      # per vehicle (was 20k shared)
+    sa_time_limit:    float = 0.3        # seconds per vehicle (was 1.0 shared)
 
 
 def arrival_rate(t: float, cfg: SimulationConfig) -> float:
     """
-    Inter-arrival time (minutes) at simulation time t.
+    Mean inter-arrival time (minutes) at simulation time t.
+
+    When cfg.stochastic_arrivals is True, the caller should sample
+    from Exponential(1/rate) rather than using this value directly.
 
     Bimodal (default):
-      t=0-120    07:00-09:00  morning peak      interval / 2.0   (2x requests)
-      t=120-480  09:00-15:00  off-peak          interval * 1.5   (quiet)
+      t=0-120    07:00-09:00  morning peak      interval / 2.0
+      t=120-480  09:00-15:00  off-peak          interval * 1.5
       t=480-600  15:00-17:00  afternoon peak    interval / 1.8
       t=600-660  17:00-18:00  evening           interval
     """

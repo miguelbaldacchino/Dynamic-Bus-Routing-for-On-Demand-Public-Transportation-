@@ -4,12 +4,15 @@
 # Both routines operate on frozen snapshots and never touch SimPy directly.
 # The simulation layer calls these functions at each decision epoch.
 #
-# Changes from previous version
-# ------------------------------
-# - weights forwarded to _SA_POLICY.propose() (was using hardcoded default)
-# - deepcopy(v.plan) in snapshot prevents SimPy race condition
-# - MetricsCollector hooks added (optional — pass None to skip)
-# - Stop.latest set from system_state["max_wait"] on insertion
+# Fixes applied
+# -------------
+# - greedy_insert uses vehicle.to_state_dict() which includes the
+#   in-transit stop in plan_snapshot.  New stops are only inserted AFTER
+#   the committed (in-transit) prefix, preserving execution correctness.
+# - Reduced deepcopy overhead: only the base plan is copied once per
+#   vehicle; candidate plans are built by list slicing + insertion.
+# - SA time budget is per-vehicle (start_time reset per vehicle call).
+# - wake_event is triggered when stops are added to an idle vehicle.
 
 from __future__ import annotations
 
@@ -26,8 +29,6 @@ from sa import SAPolicy
 # ---------------------------------------------------------------------------
 # Module-level SA policy instance
 # ---------------------------------------------------------------------------
-# Instantiated once; hyperparameters come from SimulationConfig via
-# build_sa_policy() called from main().
 
 _SA_POLICY: Optional[SAPolicy] = None
 
@@ -47,12 +48,7 @@ def _get_sa_policy() -> SAPolicy:
     """Return SA policy, creating a default one if build_sa_policy() was not called."""
     global _SA_POLICY
     if _SA_POLICY is None:
-        _SA_POLICY = SAPolicy(
-            initial_temp        = 10_000,
-            cooling_rate        = 0.999,
-            iterations          = 20_000,
-            decision_time_limit = 0.9,
-        )
+        _SA_POLICY = SAPolicy()
     return _SA_POLICY
 
 
@@ -72,8 +68,12 @@ def greedy_insert(
     Insert *request* into the best feasible position across all vehicles.
     Returns True if inserted, False if rejected.
 
-    Stop.latest is set to current_time + system_state["max_wait"] so the
-    upper pickup time window is enforced by the feasibility checker.
+    The in-transit stop (if any) is included as a committed prefix in
+    the plan snapshot.  New stops are only inserted into positions AFTER
+    this prefix, so the vehicle's current committed movement is never
+    disrupted.
+
+    Wake event is triggered if the chosen vehicle was idle.
     """
     import time as _time
     t0 = _time.time()
@@ -83,12 +83,21 @@ def greedy_insert(
     max_wait    = system_state.get("max_wait", float("inf"))
 
     for vid, vehicle in vehicles.items():
-        base_plan = vehicle.plan
+        v_state = vehicle.to_state_dict(current_time)
+        full_plan = v_state["plan_snapshot"]
 
-        for i in range(len(base_plan) + 1):
-            for j in range(i + 1, len(base_plan) + 2):
+        # Number of committed stops (in-transit stop, if present)
+        n_committed = 1 if vehicle.in_transit_stop is not None else 0
 
-                candidate = deepcopy(base_plan)
+        # Only try inserting AFTER the committed prefix
+        insertable = full_plan[n_committed:]
+        n = len(insertable)
+
+        for i in range(n + 1):
+            for j in range(i + 1, n + 2):
+
+                # Build candidate: committed prefix + insertable with new PU/DO
+                candidate_tail = list(insertable)
 
                 pu = Stop(
                     node         = request.pickup_node,
@@ -109,10 +118,10 @@ def greedy_insert(
                     request_time = request.request_time,
                 )
 
-                candidate.insert(i, pu)
-                candidate.insert(j, do)
+                candidate_tail.insert(i, pu)
+                candidate_tail.insert(j, do)
 
-                v_state = vehicle.to_state_dict(current_time)
+                candidate = full_plan[:n_committed] + candidate_tail
 
                 if not check_feasibility(candidate, v_state, system_state):
                     continue
@@ -121,15 +130,24 @@ def greedy_insert(
 
                 if cost < best_cost:
                     best_cost   = cost
-                    best_choice = (vid, candidate)
+                    best_choice = (vid, candidate, n_committed)
 
     elapsed = _time.time() - t0
     if metrics:
         metrics.log_decision_latency(elapsed)
 
     if best_choice:
-        vid, plan = best_choice
-        vehicles[vid].plan = plan
+        vid, full_candidate, n_committed = best_choice
+        vehicle = vehicles[vid]
+
+        # Write back only the non-committed portion to vehicle.plan
+        # (the in-transit stop stays on vehicle.in_transit_stop)
+        vehicle.plan = full_candidate[n_committed:]
+
+        # Wake idle vehicle if it was waiting
+        if vehicle.wake_event is not None and not vehicle.wake_event.triggered:
+            vehicle.wake_event.succeed()
+
         print(f"  -> Inserted {request.id} into {vid}  cost={best_cost:.2f}")
         return True
 
@@ -154,35 +172,44 @@ def sa_improve(
     Run one SA improvement pass over all vehicle plans in-place.
     Plans are updated only when SA finds a strictly better solution.
 
-    Key fix: deepcopy(v.plan) produces a frozen snapshot so that
-    vehicle_process cannot mutate the plan while SA is reading it.
+    Each vehicle gets its own independent time budget (per-vehicle limit).
+    The in-transit stop is included in the plan snapshot so SA sees the
+    full committed route, but SA only modifies non-committed stops.
     """
     sa_system_state = {
         **system_state,
-        "vehicles": {
-            vid: v.to_state_dict(current_time) | {"plan": deepcopy(v.plan)}
-            for vid, v in vehicles.items()
-        },
+        "vehicles": {},
     }
 
-    print("Running SA improvement...")
-    # weights forwarded so SA searches the same objective as greedy_insert
-    changes = _get_sa_policy().propose(sa_system_state, check_feasibility, weights)
+    for vid, v in vehicles.items():
+        vs = v.to_state_dict(current_time)
+        n_committed = 1 if v.in_transit_stop is not None else 0
+        sa_system_state["vehicles"][vid] = {
+            **vs,
+            "plan":        deepcopy(vs["plan_snapshot"]),
+            "n_committed": n_committed,
+        }
+
+    changes = _get_sa_policy().propose(
+        sa_system_state, check_feasibility, weights
+    )
 
     for vid, new_plan in changes.items():
         vehicle = vehicles[vid]
         v_state = vehicle.to_state_dict(current_time)
+        n_committed = 1 if vehicle.in_transit_stop is not None else 0
 
-        before = evaluate_plan(vehicle.plan, v_state, system_state, weights)
-        after  = evaluate_plan(new_plan,     v_state, system_state, weights)
+        before = evaluate_plan(
+            v_state["plan_snapshot"], v_state, system_state, weights
+        )
+        after = evaluate_plan(new_plan, v_state, system_state, weights)
 
         if after < before:
-            print(f"  SA improved {vid}: {before:.2f} -> {after:.2f}")
-            vehicle.plan = new_plan
+            # Write back only the non-committed portion
+            vehicle.plan = new_plan[n_committed:]
             if metrics:
                 metrics.log_improvement()
-        else:
-            print(f"  SA no improvement for {vid}: {before:.2f} vs {after:.2f}")
+        # (silent — no print spam; metrics track improvements)
 
 
 # ---------------------------------------------------------------------------
@@ -191,5 +218,9 @@ def sa_improve(
 
 def print_plans(vehicles: dict[str, Vehicle]) -> None:
     for vid, vehicle in vehicles.items():
+        prefix = ""
+        if vehicle.in_transit_stop is not None:
+            s = vehicle.in_transit_stop
+            prefix = f"[IN-TRANSIT: {s.kind} {s.req_id}] "
         summary = [(s.kind, s.req_id) for s in vehicle.plan]
-        print(f"   {vid}: {summary}")
+        print(f"   {vid}: {prefix}{summary}")
