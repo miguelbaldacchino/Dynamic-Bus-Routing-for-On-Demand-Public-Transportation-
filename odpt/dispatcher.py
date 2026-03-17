@@ -194,22 +194,45 @@ def sa_improve(
         sa_system_state, check_feasibility, weights
     )
 
+    # SA has already validated feasibility and confirmed combined cost
+    # improvement across all returned vehicles.  We accept all changes
+    # as a group — accepting some but not others would decouple
+    # inter-vehicle moves, causing requests to vanish from all plans.
+    if not changes:
+        return
+
+    # Compute combined improvement for logging
+    total_before = 0.0
+    total_after  = 0.0
     for vid, new_plan in changes.items():
         vehicle = vehicles[vid]
         v_state = vehicle.to_state_dict(current_time)
         n_committed = 1 if vehicle.in_transit_stop is not None else 0
 
-        before = evaluate_plan(
+        total_before += evaluate_plan(
             v_state["plan_snapshot"], v_state, system_state, weights
         )
-        after = evaluate_plan(new_plan, v_state, system_state, weights)
+        total_after += evaluate_plan(
+            new_plan, v_state, system_state, weights
+        )
 
-        if after < before:
-            # Write back only the non-committed portion
-            vehicle.plan = new_plan[n_committed:]
-            if metrics:
-                metrics.log_improvement()
-        # (silent — no print spam; metrics track improvements)
+    if total_after >= total_before:
+        return  # SA said it improved but rounding says no — skip
+
+    # Apply all changes atomically
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        n_committed = 1 if vehicle.in_transit_stop is not None else 0
+        vehicle.plan = new_plan[n_committed:]
+
+        # Wake idle vehicle if SA gave it new stops (inter-vehicle move)
+        if (vehicle.wake_event is not None
+                and not vehicle.wake_event.triggered
+                and vehicle.plan):
+            vehicle.wake_event.succeed()
+
+    if metrics:
+        metrics.log_improvement()
 
 
 # ---------------------------------------------------------------------------

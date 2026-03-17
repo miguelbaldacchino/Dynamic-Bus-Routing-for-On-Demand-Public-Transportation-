@@ -84,15 +84,16 @@ def vehicle_process(
         if stop.kind == "PU" and stop.earliest and env.now < stop.earliest:
             yield env.timeout(stop.earliest - env.now)
 
-        yield env.timeout(stop.service)
-
         # ----------------------------------------------------------------
         # Pickup: record actual time, check wait-time violation
+        # Events are recorded BEFORE service (dwell) time, matching the
+        # feasibility checker's convention.  This ensures execution-time
+        # checks align with planning-time checks.
         # ----------------------------------------------------------------
         if stop.kind == "PU":
             actual_wait = env.now - stop.request_time
 
-            # Execution-time wait violation
+            # Execution-time wait violation (checked at arrival, pre-service)
             if stop.latest is not None and env.now > stop.latest:
                 metrics.log_violation(
                     kind    = "wait",
@@ -129,7 +130,7 @@ def vehicle_process(
                 req.dropoff_time = env.now
                 req.status       = RequestStatus.COMPLETED
 
-                # Execution-time ride-time violation
+                # Execution-time ride-time violation (pre-service, matching checker)
                 if req.pickup_time is not None and req.direct_time:
                     actual_ride = env.now - req.pickup_time
                     max_ride    = cfg.ride_factor * req.direct_time
@@ -145,6 +146,9 @@ def vehicle_process(
             if verbose:
                 print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                       f"dropped off {stop.req_id}")
+
+        # Service / dwell time at stop (boarding or alighting)
+        yield env.timeout(stop.service)
 
 
 # ---------------------------------------------------------------------------

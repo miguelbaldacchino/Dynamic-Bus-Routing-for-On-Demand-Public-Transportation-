@@ -12,11 +12,12 @@
 #
 # check_feasibility: pre-scans for already-onboard passengers and counts
 #   them into the initial load.  Their DO stop is a commitment, not a
-#   precedence violation.  Ride-time is only checked when the PU time is
-#   known within this plan snapshot.
+#   precedence violation.  Ride-time is checked using the actual pickup
+#   time from vehicle_state["onboard_pickup_times"].
 #
-# evaluate_plan: already-onboard DO stops contribute travel distance only.
-#   Their ride-time cost was recorded at the epoch when they boarded.
+# evaluate_plan: already-onboard passengers' ride time is included in
+#   the cost, computed from their actual pickup time to the estimated
+#   dropoff time in the plan.
 #
 # In-transit stop handling
 # ------------------------

@@ -1,6 +1,8 @@
 # config.py
 # All time values are in MINUTES.
-# Simulation time 0 = 07:00.  Horizon 660 = 18:00.
+# Simulation time 0 = 07:00.
+# service_end = 660 = 18:00 (last request accepted).
+# horizon = 840 = 21:00 (sim clock stops; vehicles finish plans).
 #
 # Fixes applied
 # -------------
@@ -20,7 +22,7 @@ class SimulationConfig:
 
     # ---- Simulation horizon (minutes, 0=07:00) ----
     service_end:      float = 660.0      # 18:00 — stop accepting new requests
-    horizon:          float = 780.0      # 20:00 — sim ends; vehicles finish plans
+    horizon:          float = 840.0      # 21:00 — sim ends; 3h buffer for completion
 
     # ---- Demand ----
     n_requests:       int   = 220
@@ -37,7 +39,7 @@ class SimulationConfig:
     # ---- DARP constraints (minutes) ----
     ride_factor:      float = 2.5    # max ride = 2.5 x direct travel time
     max_wait:         float = 30.0   # latest pickup = request_time + 30 min
-    ride_time_margin: float = 3.0    # minutes subtracted from max ride in planning
+    ride_time_margin: float = 0.0    # minutes subtracted from max ride in planning
                                      # absorbs timing drift from congestion transitions
 
     # ---- Objective weights (alpha, beta, gamma) ----
