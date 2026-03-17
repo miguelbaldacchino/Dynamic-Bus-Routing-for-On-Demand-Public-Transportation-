@@ -19,7 +19,8 @@ class SimulationConfig:
     seed:             int   = 42
 
     # ---- Simulation horizon (minutes, 0=07:00) ----
-    horizon:          float = 660.0      # 18:00 (was 800 — incorrect)
+    service_end:      float = 660.0      # 18:00 — stop accepting new requests
+    horizon:          float = 780.0      # 20:00 — sim ends; vehicles finish plans
 
     # ---- Demand ----
     n_requests:       int   = 220

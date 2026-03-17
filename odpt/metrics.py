@@ -105,10 +105,9 @@ class MetricsCollector:
         served   = [r for r in self.records.values()
                     if not r.rejected and r.dropoff_time is not None]
         rejected = [r for r in self.records.values() if r.rejected]
+        # in_progress: assigned but not completed (waiting for pickup OR onboard)
         in_prog  = [r for r in self.records.values()
-                    if not r.rejected
-                    and r.pickup_time is not None
-                    and r.dropoff_time is None]
+                    if not r.rejected and r.dropoff_time is None]
         total    = len(self.records)
 
         wait_times    = [r.wait_time    for r in served if r.wait_time    is not None]
@@ -161,7 +160,11 @@ class MetricsCollector:
         print("\n" + "=" * 50)
         print("SIMULATION SUMMARY")
         print("=" * 50)
-        print(f"  Requests : {s['served']} served / {s['rejected']} rejected / "
+        parts = [f"{s['served']} served",
+                 f"{s['rejected']} rejected"]
+        if s['in_progress'] > 0:
+            parts.append(f"{s['in_progress']} in-progress")
+        print(f"  Requests : {' / '.join(parts)} / "
               f"{s['total_requests']} total  ({s['service_rate']:.1%})")
         print(f"  Wait time: mean={_fmt(s['mean_wait'])}  "
               f"p95={_fmt(s['p95_wait'])} min")

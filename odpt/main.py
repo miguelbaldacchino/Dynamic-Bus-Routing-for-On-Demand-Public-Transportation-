@@ -173,8 +173,8 @@ def request_generator(
             gap = mean_gap
         yield env.timeout(gap)
 
-        # Don't generate requests past service horizon
-        if env.now >= cfg.horizon:
+        # Don't generate requests past service end
+        if env.now >= cfg.service_end:
             break
 
         pu = random.randint(1, cfg.n_nodes)
@@ -248,7 +248,8 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
         "ride_time_margin": cfg.ride_time_margin,
     }
 
-    print(f"\nSimulation: {sim_time_to_clock(0)} - {sim_time_to_clock(cfg.horizon)}")
+    print(f"\nService   : {sim_time_to_clock(0)} - {sim_time_to_clock(cfg.service_end)}"
+          f"  (sim until {sim_time_to_clock(cfg.horizon)} for completion)")
     print(f"Fleet     : {cfg.fleet_size} buses x capacity {cfg.vehicle_capacity}")
     print(f"Demand    : {cfg.n_requests} requests, "
           f"profile={cfg.demand_profile}, "
