@@ -1,7 +1,36 @@
 # feasibility.py
+# Shared feasibility checker and plan-objective evaluator.
+#
+# Single source of truth for all constraint verification and cost scoring.
+# No routing logic lives here.
+#
+# Commitment / in-progress passenger handling
+# -------------------------------------------
+# vehicle_process pops PU stops as it serves them.  A vehicle's plan can
+# therefore contain a DO stop whose PU stop has already been served (the
+# passenger is currently onboard).
+#
+# check_feasibility: pre-scans for already-onboard passengers and counts
+#   them into the initial load.  Their DO stop is a commitment, not a
+#   precedence violation.  Ride-time is only checked when the PU time is
+#   known within this plan snapshot.
+#
+# evaluate_plan: already-onboard DO stops contribute travel distance only.
+#   Their ride-time cost was recorded at the epoch when they boarded.
+#
+# New in this version
+# -------------------
+# - stop.latest enforced for pickup upper time window
+# - vehicle_state["onboard_count"] pre-loads committed passengers
+#   (set by Vehicle.to_state_dict when Vehicle.onboard is non-empty)
+
 from __future__ import annotations
 from typing import Callable
 
+
+# ---------------------------------------------------------------------------
+# Feasibility checker
+# ---------------------------------------------------------------------------
 
 def check_feasibility(
     plan: list,
@@ -9,25 +38,36 @@ def check_feasibility(
     system_state: dict,
 ) -> bool:
     """
-    Hard DARP constraints:
-    1. Precedence  — PU before DO, OR passenger already onboard.
-    2. Capacity    — onboard never exceeds vehicle capacity.
-    3. Pickup TW   — service >= stop.earliest.
-    4. Max ride time — checked only when PU time is known in this plan.
-    """
-    capacity: int         = vehicle_state["capacity"]
-    ride_factor: float    = system_state["ride_factor"]
-    travel_time: Callable = system_state["travel_time"]
+    Return True iff *plan* satisfies all hard DARP constraints:
 
-    # Pre-scan: requests whose PU was already served (only DO remains).
-    # These passengers occupy a seat from position 0.
+    1. Precedence    — PU before DO, or passenger already onboard.
+    2. Capacity      — onboard load never exceeds vehicle capacity.
+    3. Pickup TW     — service time >= stop.earliest (wait if early).
+    4. Pickup TW UB  — service time <= stop.latest (if set).
+    5. Max ride time — ride time <= ride_factor × direct_time
+                       (checked only when PU time is known in this plan).
+
+    Parameters
+    ----------
+    plan          : ordered list of Stop objects
+    vehicle_state : dict — keys: capacity, location, time, onboard_count
+    system_state  : dict — keys: travel_time, ride_factor, direct_times
+    """
+    capacity:     int      = vehicle_state["capacity"]
+    ride_factor:  float    = system_state["ride_factor"]
+    travel_time:  Callable = system_state["travel_time"]
+
+    # Pre-scan: identify already-onboard passengers (DO present, PU already served).
     pu_ids          = {s.req_id for s in plan if s.kind == "PU"}
     do_ids          = {s.req_id for s in plan if s.kind == "DO"}
     already_onboard = do_ids - pu_ids
 
-    onboard      = len(already_onboard)   # pre-load committed passengers
-    pickup_times: dict[str, float] = {}
+    # Pre-load capacity with passengers already in the vehicle.
+    # vehicle_state["onboard_count"] is set by Vehicle.to_state_dict();
+    # fall back to len(already_onboard) for callers that don't set it.
+    onboard = vehicle_state.get("onboard_count", len(already_onboard))
 
+    pickup_times: dict[str, float] = {}
     current_node = vehicle_state["location"]
     current_time = vehicle_state["time"]
 
@@ -35,23 +75,32 @@ def check_feasibility(
         current_time += travel_time(current_node, stop.node, current_time)
 
         if stop.kind == "PU":
+            # Lower time window — wait if early
             if stop.earliest and current_time < stop.earliest:
                 current_time = stop.earliest
+
+            # Upper time window — reject if too late
+            if stop.latest and current_time > stop.latest:
+                return False
+
             onboard += 1
             pickup_times[stop.req_id] = current_time
+
             if onboard > capacity:
                 return False
 
         elif stop.kind == "DO":
-            # Real precedence violation: DO with no PU anywhere and not pre-loaded
+            # True precedence violation only if passenger was never registered
             if stop.req_id not in pu_ids and stop.req_id not in already_onboard:
                 return False
-            # Ride-time check — only when PU time is available in this plan
+
+            # Ride-time check — only when PU time is available in this snapshot
             if stop.req_id in pickup_times:
                 ride_time = current_time - pickup_times[stop.req_id]
                 direct    = system_state["direct_times"].get(stop.req_id)
                 if direct and ride_time > ride_factor * direct:
                     return False
+
             onboard -= 1
 
         current_time += stop.service
@@ -60,6 +109,10 @@ def check_feasibility(
     return True
 
 
+# ---------------------------------------------------------------------------
+# Objective / cost evaluator
+# ---------------------------------------------------------------------------
+
 def evaluate_plan(
     plan: list,
     vehicle_state: dict,
@@ -67,11 +120,14 @@ def evaluate_plan(
     weights: tuple[float, float, float],
 ) -> float:
     """
-    Weighted cost: α·distance + β·wait_time + γ·ride_time
+    Weighted cost:  α·distance + β·wait_time + γ·ride_time
 
-    DO stops without a matching PU in this plan (already-onboard passengers)
-    contribute distance only — their ride-time cost was already counted
-    at the epoch when they boarded.
+    Already-onboard passengers (DO present, PU already served) contribute
+    travel distance only — their ride-time cost was counted when they boarded.
+
+    Parameters
+    ----------
+    weights : (alpha, beta, gamma)
     """
     alpha, beta, gamma = weights
     travel_time: Callable = system_state["travel_time"]
@@ -95,9 +151,10 @@ def evaluate_plan(
             pickup_times[stop.req_id] = current_time
 
         elif stop.kind == "DO":
-            if stop.req_id in pickup_times:          # PU was in this plan
+            if stop.req_id in pickup_times:
+                # PU was in this plan snapshot — full ride time known
                 total_ride += current_time - pickup_times[stop.req_id]
-            # else: already onboard — skip, PU cost already recorded
+            # else: already-onboard passenger — skip (cost already counted)
 
         current_time += stop.service
         current_node  = stop.node
