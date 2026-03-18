@@ -39,8 +39,17 @@ class SimulationConfig:
     # ---- DARP constraints (minutes) ----
     ride_factor:      float = 2.5    # max ride = 2.5 x direct travel time
     max_wait:         float = 30.0   # latest pickup = request_time + 30 min
-    ride_time_margin: float = 0.0    # minutes subtracted from max ride in planning
+    ride_time_margin: float = 3.0    # minutes subtracted from max ride in planning
                                      # absorbs timing drift from congestion transitions
+
+    # ---- Execution noise ----
+    # Stochastic travel time: actual = planned * LogNormal(0, sigma).
+    # 0.0 = deterministic (no noise).  0.10 = mild (~10% CV).
+    # 0.20 = moderate.  0.30 = heavy.
+    # The planner uses the deterministic travel_time function.
+    # Execution samples noisy travel, creating planning-execution gaps
+    # that produce realistic constraint violations.
+    travel_noise:     float = 0.15
 
     # ---- Objective weights (alpha, beta, gamma) ----
     weights:          tuple = (1.0, 2.0, 2.5)  # distance, wait_time, ride_time

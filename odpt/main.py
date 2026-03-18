@@ -58,21 +58,32 @@ def vehicle_process(
         stop = vehicle.plan.pop(0)
 
         # --- Mark in-transit BEFORE yielding ---
-        # Record departure time and ETA so the dispatcher can reconstruct
-        # accurate timing for the feasibility checker.
+        # Record departure time and ETA using the PLANNED (deterministic)
+        # travel time.  The dispatcher and feasibility checker always use
+        # planned times.  Execution may differ due to travel_noise.
+        planned_travel = travel_fn(vehicle.location, stop.node, env.now)
         vehicle.in_transit_stop        = stop
         vehicle.in_transit_depart_time = env.now
-        vehicle.in_transit_eta         = env.now + travel_fn(
-            vehicle.location, stop.node, env.now
-        )
+        vehicle.in_transit_eta         = env.now + planned_travel
 
         if verbose:
             print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                   f"-> {stop.kind} {stop.req_id} node {stop.node}")
 
-        travel = travel_fn(vehicle.location, stop.node, env.now)
-        metrics.log_distance(travel)
-        yield env.timeout(travel)
+        # --- Actual travel: apply stochastic noise ---
+        # Planned travel is deterministic (used by the planner).
+        # Actual travel adds lognormal noise to model real-world variability
+        # (traffic incidents, boarding delays, signal timing, etc.).
+        # This creates a gap between what the planner predicted and what
+        # actually happens — the source of realistic constraint violations.
+        if cfg.travel_noise > 0 and planned_travel > 0:
+            noise_factor = random.lognormvariate(0.0, cfg.travel_noise)
+            actual_travel = planned_travel * noise_factor
+        else:
+            actual_travel = planned_travel
+
+        metrics.log_distance(actual_travel)
+        yield env.timeout(actual_travel)
 
         # --- Arrived: update location, clear in-transit ---
         vehicle.location               = stop.node
