@@ -1,18 +1,6 @@
 # main.py
-# SimPy simulation — full operating day (07:00 to 18:00).
-# All times in MINUTES.  Simulation t=0 = 07:00.
-#
-# Fixes applied
-# -------------
-# - vehicle_process sets vehicle.in_transit_stop before yielding for
-#   travel, and clears it after arrival.  This gives the dispatcher an
-#   accurate view of the vehicle's committed state.
-# - Idle vehicles wait on a SimPy Event (wake_event) instead of polling
-#   every 1 minute.  The dispatcher succeeds the event when it adds
-#   stops to an idle vehicle.
-# - Stochastic arrivals: when cfg.stochastic_arrivals is True, inter-
-#   arrival times are drawn from Exponential(mean=arrival_rate(t)).
-# - Horizon corrected to 660 (18:00) in config; simulation uses cfg.horizon.
+# SimPy simulation — Malta On Demand (05:30 to 22:30).
+# All times in MINUTES.  Simulation t=0 = 05:30.
 
 import simpy
 import random
@@ -22,6 +10,7 @@ from malta_travel import DEFAULT_COORDS, make_travel_fn
 from dispatcher import greedy_insert, sa_improve, print_plans, build_sa_policy
 from config import SimulationConfig, arrival_rate
 from metrics import MetricsCollector
+from visualize import EventLogger, generate_map
 
 
 def sim_time_to_clock(t: float) -> str:
@@ -42,6 +31,7 @@ def vehicle_process(
     requests:     dict,
     metrics:      MetricsCollector,
     cfg:          SimulationConfig,
+    logger:       EventLogger,
     verbose:      bool = False,
 ) -> None:
 
@@ -53,30 +43,27 @@ def vehicle_process(
         if not vehicle.plan:
             vehicle.wake_event = env.event()
             yield vehicle.wake_event
-            # Event was succeeded by the dispatcher; re-check plan
             continue
 
         stop = vehicle.plan.pop(0)
 
         # --- Mark in-transit BEFORE yielding ---
-        # Record departure time and ETA using the PLANNED (deterministic)
-        # travel time.  The dispatcher and feasibility checker always use
-        # planned times.  Execution may differ due to travel_noise.
         planned_travel = travel_fn(vehicle.location, stop.node, env.now)
         vehicle.in_transit_stop        = stop
         vehicle.in_transit_depart_time = env.now
         vehicle.in_transit_eta         = env.now + planned_travel
+
+        # Log departure
+        logger.log_depart(
+            env.now, sim_time_to_clock(env.now), vehicle.id,
+            vehicle.location, stop.node, stop.req_id, stop.kind,
+        )
 
         if verbose:
             print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                   f"-> {stop.kind} {stop.req_id} node {stop.node}")
 
         # --- Actual travel: apply stochastic noise ---
-        # Planned travel is deterministic (used by the planner).
-        # Actual travel adds lognormal noise to model real-world variability
-        # (traffic incidents, boarding delays, signal timing, etc.).
-        # This creates a gap between what the planner predicted and what
-        # actually happens — the source of realistic constraint violations.
         if cfg.travel_noise > 0 and planned_travel > 0:
             noise_factor = random.lognormvariate(0.0, cfg.travel_noise)
             actual_travel = planned_travel * noise_factor
@@ -92,27 +79,26 @@ def vehicle_process(
         vehicle.in_transit_depart_time = None
         vehicle.in_transit_eta         = None
 
+        # Log arrival
+        logger.log_arrive(
+            env.now, sim_time_to_clock(env.now), vehicle.id,
+            stop.node, stop.req_id, stop.kind,
+        )
+
         # Wait at pickup if vehicle arrives before earliest time
         if stop.kind == "PU" and stop.earliest and env.now < stop.earliest:
             yield env.timeout(stop.earliest - env.now)
 
         # ----------------------------------------------------------------
-        # Pickup: record actual time, check wait-time violation
-        # Events are recorded BEFORE service (dwell) time, matching the
-        # feasibility checker's convention.  This ensures execution-time
-        # checks align with planning-time checks.
+        # Pickup
         # ----------------------------------------------------------------
         if stop.kind == "PU":
             actual_wait = env.now - stop.request_time
 
-            # Execution-time wait violation (checked at arrival, pre-service)
             if stop.latest is not None and env.now > stop.latest:
                 metrics.log_violation(
-                    kind    = "wait",
-                    req_id  = stop.req_id,
-                    value   = actual_wait,
-                    limit   = cfg.max_wait,
-                    t       = env.now,
+                    kind="wait", req_id=stop.req_id,
+                    value=actual_wait, limit=cfg.max_wait, t=env.now,
                 )
 
             vehicle.onboard.add(stop.req_id)
@@ -124,42 +110,52 @@ def vehicle_process(
                 req.pickup_time = env.now
                 req.status      = RequestStatus.ONBOARD
 
+            # Log pickup
+            logger.log_pickup(
+                env.now, sim_time_to_clock(env.now), vehicle.id,
+                stop.node, stop.req_id, actual_wait,
+            )
+
             if verbose:
                 print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                       f"picked up {stop.req_id}  "
                       f"(waited {actual_wait:.1f} min)")
 
         # ----------------------------------------------------------------
-        # Dropoff: record actual time, check ride-time violation
+        # Dropoff
         # ----------------------------------------------------------------
         elif stop.kind == "DO":
             vehicle.onboard.discard(stop.req_id)
             vehicle.onboard_pickup_times.pop(stop.req_id, None)
             metrics.mark_dropoff(stop.req_id, env.now)
 
+            ride_time = None
             if stop.req_id in requests:
                 req              = requests[stop.req_id]
                 req.dropoff_time = env.now
                 req.status       = RequestStatus.COMPLETED
 
-                # Execution-time ride-time violation (pre-service, matching checker)
                 if req.pickup_time is not None and req.direct_time:
                     actual_ride = env.now - req.pickup_time
+                    ride_time = actual_ride
                     max_ride    = cfg.ride_factor * req.direct_time
                     if actual_ride > max_ride:
                         metrics.log_violation(
-                            kind   = "ride",
-                            req_id = stop.req_id,
-                            value  = actual_ride,
-                            limit  = max_ride,
-                            t      = env.now,
+                            kind="ride", req_id=stop.req_id,
+                            value=actual_ride, limit=max_ride, t=env.now,
                         )
+
+            # Log dropoff
+            logger.log_dropoff(
+                env.now, sim_time_to_clock(env.now), vehicle.id,
+                stop.node, stop.req_id, ride_time,
+            )
 
             if verbose:
                 print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                       f"dropped off {stop.req_id}")
 
-        # Service / dwell time at stop (boarding or alighting)
+        # Service / dwell time at stop
         yield env.timeout(stop.service)
 
 
@@ -177,11 +173,11 @@ def request_generator(
     travel_fn,
     requests:     dict,
     metrics:      MetricsCollector,
+    logger:       EventLogger,
     verbose:      bool = False,
 ) -> None:
 
     for i in range(1, cfg.n_requests + 1):
-        # --- Inter-arrival time ---
         mean_gap = arrival_rate(env.now, cfg)
         if cfg.stochastic_arrivals:
             gap = random.expovariate(1.0 / mean_gap)
@@ -189,7 +185,6 @@ def request_generator(
             gap = mean_gap
         yield env.timeout(gap)
 
-        # Don't generate requests past service end
         if env.now >= cfg.service_end:
             break
 
@@ -213,6 +208,9 @@ def request_generator(
         clock = sim_time_to_clock(env.now)
         print(f"[{clock}] Request {req.id:>5}  {pu:>2} -> {do:<2}", end="  ")
 
+        # Log request arrival
+        logger.log_request(env.now, clock, req.id, pu, do)
+
         inserted = greedy_insert(
             req, vehicles, system_state, env.now, weights, metrics
         )
@@ -221,6 +219,8 @@ def request_generator(
             req.status          = RequestStatus.ASSIGNED
             req.assignment_time = env.now
             sa_improve(vehicles, system_state, env.now, weights, metrics)
+        else:
+            logger.log_reject(env.now, clock, req.id, pu, do)
 
         if verbose:
             print_plans(vehicles)
@@ -242,8 +242,8 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
     direct_times: dict = {}
     requests:     dict = {}
     metrics       = MetricsCollector()
+    logger        = EventLogger()
 
-    # Build SA policy from config
     build_sa_policy(cfg)
 
     vehicles = {
@@ -280,17 +280,23 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
     for vehicle in vehicles.values():
         env.process(vehicle_process(
             env, vehicle, travel_fn, system_state,
-            requests, metrics, cfg, verbose,
+            requests, metrics, cfg, logger, verbose,
         ))
 
     env.process(request_generator(
         env, vehicles, system_state, cfg.weights,
-        cfg, direct_times, travel_fn, requests, metrics, verbose,
+        cfg, direct_times, travel_fn, requests, metrics, logger, verbose,
     ))
 
     env.run(until=cfg.horizon)
 
     metrics.print_summary()
+
+    # --- Generate visualization ---
+    print("\nGenerating visualization...")
+    logger.to_json("simulation_events.json")
+    generate_map(logger, "simulation_map.html")
+
     return metrics
 
 
