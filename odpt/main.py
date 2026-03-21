@@ -16,9 +16,8 @@
 
 import simpy
 import random
-
+from malta_travel import DEFAULT_COORDS, make_travel_fn
 from models import Request, Vehicle, RequestStatus
-from travel import DEFAULT_COORDS, make_travel_fn
 from dispatcher import greedy_insert, sa_improve, print_plans, build_sa_policy
 from config import SimulationConfig, arrival_rate
 from metrics import MetricsCollector

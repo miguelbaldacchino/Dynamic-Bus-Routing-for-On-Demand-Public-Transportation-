@@ -29,11 +29,11 @@ class SimulationConfig:
     inter_arrival:    float = 3.0        # minutes between requests (baseline mean)
     demand_profile:   str   = "bimodal"  # "uniform" | "peak" | "bimodal"
     stochastic_arrivals: bool = True     # True = Poisson (exponential gaps)
-    n_nodes:          int   = 15         # nodes 1-15 available (0 = depot)
+    n_nodes:          int   = 71         # nodes 1-71 available (0 = depot)
 
     # ---- Fleet ----
     fleet_size:       int   = 8
-    vehicle_capacity: int   = 12
+    vehicle_capacity: int   = 16
     depot_node:       int   = 0
 
     # ---- DARP constraints (minutes) ----
