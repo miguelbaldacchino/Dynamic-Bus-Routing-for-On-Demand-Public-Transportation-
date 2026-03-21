@@ -230,7 +230,7 @@ def request_generator(
 # Main
 # ---------------------------------------------------------------------------
 
-def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollector:
+def main(cfg: SimulationConfig = None, verbose: bool = False, visualize: bool = True) -> MetricsCollector:
     if cfg is None:
         cfg = SimulationConfig()
 
@@ -293,12 +293,15 @@ def main(cfg: SimulationConfig = None, verbose: bool = False) -> MetricsCollecto
     metrics.print_summary()
 
     # --- Generate visualization ---
-    print("\nGenerating visualization...")
-    logger.to_json("simulation_events.json")
-    generate_map(logger, "simulation_map.html")
+    if visualize:
+        print("\nGenerating visualization...")
+        logger.to_json("simulation_events.json")
+        generate_map(logger, "simulation_map.html")
 
     return metrics
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    viz = "--no-viz" not in sys.argv
+    main(visualize=viz)
