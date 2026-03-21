@@ -16,15 +16,17 @@
 
 import simpy
 import random
-from malta_travel import DEFAULT_COORDS, make_travel_fn
+
 from models import Request, Vehicle, RequestStatus
+from malta_travel import DEFAULT_COORDS, make_travel_fn
 from dispatcher import greedy_insert, sa_improve, print_plans, build_sa_policy
 from config import SimulationConfig, arrival_rate
 from metrics import MetricsCollector
 
 
 def sim_time_to_clock(t: float) -> str:
-    total = int(7 * 60 + t)
+    """Convert simulation time (minutes from 05:30) to HH:MM clock string."""
+    total = int(5 * 60 + 30 + t)
     return f"{total // 60:02d}:{total % 60:02d}"
 
 

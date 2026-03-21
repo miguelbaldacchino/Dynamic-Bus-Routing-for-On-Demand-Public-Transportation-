@@ -38,22 +38,31 @@ for _s in _STOPS:
 
 def congestion_factor(t_minutes: float) -> float:
     """
-    Speed multiplier at simulation time t (minutes from 07:00).
+    Speed multiplier at simulation time t (minutes from 05:30).
     Calibrated for Malta's On Demand zone (Sliema/St Julian's/San Gwann
-    corridor), where peak-hour congestion roughly doubles travel times.
+    corridor) based on typical Malta traffic patterns.
 
-      07:00-09:00  t=0-120    morning peak      x 0.40  (2.5x slower)
-      09:00-15:00  t=120-480  off-peak          x 1.00  (OSRM base)
-      15:00-17:00  t=480-600  afternoon peak    x 0.45  (2.2x slower)
-      17:00-18:00  t=600-660  evening wind-down x 0.70
+      05:30-07:00  t=0-90     early morning    x 0.85  (light traffic)
+      07:00-09:00  t=90-210   morning peak     x 0.40  (2.5x slower, severe)
+      09:00-12:00  t=210-390  mid-morning      x 0.70  (school run, moderate)
+      12:00-15:00  t=390-570  afternoon        x 1.00  (off-peak, OSRM base)
+      15:00-18:00  t=570-750  evening peak     x 0.45  (2.2x slower, severe)
+      18:00-19:30  t=750-840  evening taper    x 0.70  (moderate)
+      19:30-22:30  t=840-1020 night            x 0.90  (light traffic)
     """
-    if t_minutes < 120:
-        return 0.40
-    if t_minutes < 480:
-        return 1.00
-    if t_minutes < 600:
-        return 0.45
-    return 0.70
+    if t_minutes < 90:
+        return 0.85      # 05:30-07:00 early morning
+    if t_minutes < 210:
+        return 0.40      # 07:00-09:00 morning peak
+    if t_minutes < 390:
+        return 0.70      # 09:00-12:00 mid-morning
+    if t_minutes < 570:
+        return 1.00      # 12:00-15:00 off-peak
+    if t_minutes < 750:
+        return 0.45      # 15:00-18:00 evening peak
+    if t_minutes < 840:
+        return 0.70      # 18:00-19:30 evening taper
+    return 0.90          # 19:30-22:30 night
 
 
 def make_travel_fn(coords: dict = None, speed_kmh: float = None):
