@@ -4,6 +4,7 @@
 
 import simpy
 import random
+import os
 
 from models import Request, Vehicle, RequestStatus
 from malta_travel import DEFAULT_COORDS, make_travel_fn
@@ -292,13 +293,84 @@ def main(cfg: SimulationConfig = None, verbose: bool = False, visualize: bool = 
 
     metrics.print_summary()
 
-    # --- Generate visualization ---
+    # --- Generate outputs ---
+    run_dir = _make_run_dir(cfg)
+    _save_summary(metrics, cfg, run_dir)
+
     if visualize:
         print("\nGenerating visualization...")
-        logger.to_json("simulation_events.json")
-        generate_map(logger, "simulation_map.html")
+        events_path = os.path.join(run_dir, "events.json")
+        map_path    = os.path.join(run_dir, "map.html")
+        logger.to_json(events_path)
+        generate_map(logger, map_path)
 
+    print(f"\nOutputs saved to: {run_dir}")
     return metrics
+
+
+def _make_run_dir(cfg: SimulationConfig) -> str:
+    """
+    Create outputs/run_NNN/ directory.
+    Auto-increments: run_001, run_002, etc.
+    """
+    os.makedirs("outputs", exist_ok=True)
+
+    existing = [
+        d for d in os.listdir("outputs")
+        if os.path.isdir(os.path.join("outputs", d)) and d.startswith("run_")
+    ]
+    if existing:
+        nums = []
+        for d in existing:
+            try:
+                nums.append(int(d.split("_")[1]))
+            except (IndexError, ValueError):
+                pass
+        next_num = max(nums) + 1 if nums else 1
+    else:
+        next_num = 1
+
+    run_dir = os.path.join("outputs", f"run_{next_num:03d}")
+    os.makedirs(run_dir)
+    return run_dir
+
+
+def _save_summary(metrics: MetricsCollector, cfg: SimulationConfig, run_dir: str):
+    """Save simulation config and metrics summary to the run directory."""
+    import json as _json
+    from dataclasses import asdict
+
+    summary = {
+        "config": {
+            "seed":               cfg.seed,
+            "service_end":        cfg.service_end,
+            "horizon":            cfg.horizon,
+            "n_requests":         cfg.n_requests,
+            "inter_arrival":      cfg.inter_arrival,
+            "demand_profile":     cfg.demand_profile,
+            "stochastic_arrivals": cfg.stochastic_arrivals,
+            "n_nodes":            cfg.n_nodes,
+            "fleet_size":         cfg.fleet_size,
+            "vehicle_capacity":   cfg.vehicle_capacity,
+            "depot_node":         cfg.depot_node,
+            "ride_factor":        cfg.ride_factor,
+            "max_wait":           cfg.max_wait,
+            "ride_time_margin":   cfg.ride_time_margin,
+            "travel_noise":       cfg.travel_noise,
+            "weights":            list(cfg.weights),
+            "policy":             cfg.policy,
+            "sa_initial_temp":    cfg.sa_initial_temp,
+            "sa_cooling_rate":    cfg.sa_cooling_rate,
+            "sa_iterations":      cfg.sa_iterations,
+            "sa_time_limit":      cfg.sa_time_limit,
+        },
+        "metrics": metrics.summary(),
+    }
+
+    path = os.path.join(run_dir, "summary.json")
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(summary, f, indent=2, default=str)
+    print(f"  Summary saved to {path}")
 
 
 if __name__ == "__main__":
