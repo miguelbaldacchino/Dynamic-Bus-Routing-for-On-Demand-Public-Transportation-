@@ -1,0 +1,220 @@
+{
+  "greedy_baseline": {
+    "service_rate": 0.885215832450496,
+    "mean_wait": 8.28068044365066,
+    "mean_ride": 8.123501259371343,
+    "reward": -496.81893425890905
+  },
+  "evaluations": [
+    {
+      "timestep": 50000,
+      "service_rate": 0.8682,
+      "mean_wait": 15.187,
+      "mean_ride": 9.0587,
+      "p95_wait": 28.8035,
+      "p95_ride": 18.6599,
+      "reward": -792.8963,
+      "rejected": 40.6
+    },
+    {
+      "timestep": 100000,
+      "service_rate": 0.8812,
+      "mean_wait": 11.2643,
+      "mean_ride": 8.4909,
+      "p95_wait": 28.3432,
+      "p95_ride": 15.8514,
+      "reward": -655.3207,
+      "rejected": 37.2
+    },
+    {
+      "timestep": 150000,
+      "service_rate": 0.8816,
+      "mean_wait": 9.7431,
+      "mean_ride": 8.3891,
+      "p95_wait": 27.4706,
+      "p95_ride": 16.1327,
+      "reward": -592.8735,
+      "rejected": 37.4
+    },
+    {
+      "timestep": 200000,
+      "service_rate": 0.8798,
+      "mean_wait": 10.0711,
+      "mean_ride": 8.4586,
+      "p95_wait": 27.6574,
+      "p95_ride": 16.1949,
+      "reward": -610.4861,
+      "rejected": 38.2
+    },
+    {
+      "timestep": 250000,
+      "service_rate": 0.8863,
+      "mean_wait": 10.3198,
+      "mean_ride": 8.3586,
+      "p95_wait": 27.8248,
+      "p95_ride": 15.7218,
+      "reward": -612.8542,
+      "rejected": 36.0
+    },
+    {
+      "timestep": 300000,
+      "service_rate": 0.8845,
+      "mean_wait": 9.8422,
+      "mean_ride": 8.3489,
+      "p95_wait": 27.6992,
+      "p95_ride": 15.3534,
+      "reward": -599.6392,
+      "rejected": 36.6
+    },
+    {
+      "timestep": 350000,
+      "service_rate": 0.8835,
+      "mean_wait": 10.1799,
+      "mean_ride": 8.3522,
+      "p95_wait": 28.1813,
+      "p95_ride": 15.5001,
+      "reward": -610.3317,
+      "rejected": 37.0
+    },
+    {
+      "timestep": 400000,
+      "service_rate": 0.8835,
+      "mean_wait": 9.9388,
+      "mean_ride": 8.4476,
+      "p95_wait": 28.1028,
+      "p95_ride": 16.191,
+      "reward": -602.0336,
+      "rejected": 37.0
+    },
+    {
+      "timestep": 450000,
+      "service_rate": 0.8828,
+      "mean_wait": 9.8512,
+      "mean_ride": 8.3933,
+      "p95_wait": 27.9116,
+      "p95_ride": 15.5319,
+      "reward": -602.8726,
+      "rejected": 37.0
+    },
+    {
+      "timestep": 500000,
+      "service_rate": 0.8792,
+      "mean_wait": 9.5867,
+      "mean_ride": 8.3024,
+      "p95_wait": 27.872,
+      "p95_ride": 15.1364,
+      "reward": -595.2544,
+      "rejected": 38.2
+    },
+    {
+      "timestep": 550000,
+      "service_rate": 0.875,
+      "mean_wait": 9.3184,
+      "mean_ride": 8.3193,
+      "p95_wait": 28.0598,
+      "p95_ride": 15.815,
+      "reward": -586.9543,
+      "rejected": 39.8
+    },
+    {
+      "timestep": 600000,
+      "service_rate": 0.8694,
+      "mean_wait": 9.3752,
+      "mean_ride": 8.3774,
+      "p95_wait": 28.0393,
+      "p95_ride": 16.033,
+      "reward": -596.2199,
+      "rejected": 41.8
+    },
+    {
+      "timestep": 650000,
+      "service_rate": 0.8799,
+      "mean_wait": 9.9396,
+      "mean_ride": 8.3737,
+      "p95_wait": 28.1773,
+      "p95_ride": 15.8066,
+      "reward": -604.0209,
+      "rejected": 38.0
+    },
+    {
+      "timestep": 700000,
+      "service_rate": 0.8846,
+      "mean_wait": 10.2069,
+      "mean_ride": 8.442,
+      "p95_wait": 27.9187,
+      "p95_ride": 16.1368,
+      "reward": -611.3368,
+      "rejected": 36.6
+    },
+    {
+      "timestep": 750000,
+      "service_rate": 0.8778,
+      "mean_wait": 10.4651,
+      "mean_ride": 8.496,
+      "p95_wait": 28.4863,
+      "p95_ride": 16.504,
+      "reward": -623.5365,
+      "rejected": 38.8
+    },
+    {
+      "timestep": 800000,
+      "service_rate": 0.881,
+      "mean_wait": 10.7997,
+      "mean_ride": 8.486,
+      "p95_wait": 28.2975,
+      "p95_ride": 16.698,
+      "reward": -628.744,
+      "rejected": 37.6
+    },
+    {
+      "timestep": 850000,
+      "service_rate": 0.8775,
+      "mean_wait": 10.6492,
+      "mean_ride": 8.4318,
+      "p95_wait": 28.4301,
+      "p95_ride": 16.0968,
+      "reward": -626.1934,
+      "rejected": 38.2
+    },
+    {
+      "timestep": 900000,
+      "service_rate": 0.8788,
+      "mean_wait": 10.1395,
+      "mean_ride": 8.4652,
+      "p95_wait": 28.2605,
+      "p95_ride": 16.012,
+      "reward": -605.3067,
+      "rejected": 37.8
+    },
+    {
+      "timestep": 950000,
+      "service_rate": 0.8834,
+      "mean_wait": 10.6146,
+      "mean_ride": 8.4425,
+      "p95_wait": 28.2686,
+      "p95_ride": 15.8802,
+      "reward": -618.5961,
+      "rejected": 36.8
+    },
+    {
+      "timestep": 1000000,
+      "service_rate": 0.8776,
+      "mean_wait": 10.279,
+      "mean_ride": 8.4616,
+      "p95_wait": 28.0351,
+      "p95_ride": 15.952,
+      "reward": -615.3469,
+      "rejected": 38.8
+    }
+  ],
+  "final_evaluation": {
+    "service_rate": 0.8833,
+    "mean_wait": 10.2836,
+    "mean_ride": 8.6197,
+    "p95_wait": 28.2165,
+    "p95_ride": 16.5688,
+    "reward": -610.5291,
+    "rejected": 37.7
+  },
+  "training_time_seconds": 2214.6
+}
