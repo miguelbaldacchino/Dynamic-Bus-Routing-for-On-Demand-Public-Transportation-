@@ -1,0 +1,120 @@
+{
+  "greedy_baseline": {
+    "service_rate": 0.885215832450496,
+    "mean_wait": 8.28068044365066,
+    "mean_ride": 8.123501259371343,
+    "reward": -496.81893425890905
+  },
+  "evaluations": [
+    {
+      "timestep": 50000,
+      "service_rate": 0.8739,
+      "mean_wait": 13.5934,
+      "mean_ride": 8.8327,
+      "p95_wait": 28.5126,
+      "p95_ride": 17.6122,
+      "reward": -736.4909,
+      "rejected": 38.8
+    },
+    {
+      "timestep": 100000,
+      "service_rate": 0.8607,
+      "mean_wait": 12.267,
+      "mean_ride": 8.5075,
+      "p95_wait": 28.4843,
+      "p95_ride": 16.9132,
+      "reward": -707.3627,
+      "rejected": 44.2
+    },
+    {
+      "timestep": 150000,
+      "service_rate": 0.8784,
+      "mean_wait": 12.3476,
+      "mean_ride": 8.7373,
+      "p95_wait": 28.3557,
+      "p95_ride": 17.2447,
+      "reward": -690.5407,
+      "rejected": 38.4
+    },
+    {
+      "timestep": 200000,
+      "service_rate": 0.8723,
+      "mean_wait": 13.2972,
+      "mean_ride": 8.6551,
+      "p95_wait": 28.5446,
+      "p95_ride": 16.6943,
+      "reward": -725.0858,
+      "rejected": 39.2
+    },
+    {
+      "timestep": 250000,
+      "service_rate": 0.8788,
+      "mean_wait": 11.2397,
+      "mean_ride": 8.5242,
+      "p95_wait": 28.1428,
+      "p95_ride": 16.6929,
+      "reward": -648.0663,
+      "rejected": 38.4
+    },
+    {
+      "timestep": 300000,
+      "service_rate": 0.8776,
+      "mean_wait": 11.1147,
+      "mean_ride": 8.4878,
+      "p95_wait": 28.1555,
+      "p95_ride": 16.2172,
+      "reward": -650.8745,
+      "rejected": 38.6
+    },
+    {
+      "timestep": 350000,
+      "service_rate": 0.8811,
+      "mean_wait": 10.4543,
+      "mean_ride": 8.3839,
+      "p95_wait": 28.1851,
+      "p95_ride": 15.5203,
+      "reward": -619.353,
+      "rejected": 37.2
+    },
+    {
+      "timestep": 400000,
+      "service_rate": 0.8834,
+      "mean_wait": 10.8268,
+      "mean_ride": 8.4398,
+      "p95_wait": 28.012,
+      "p95_ride": 15.7967,
+      "reward": -633.0847,
+      "rejected": 36.8
+    },
+    {
+      "timestep": 450000,
+      "service_rate": 0.881,
+      "mean_wait": 9.956,
+      "mean_ride": 8.4185,
+      "p95_wait": 28.0236,
+      "p95_ride": 15.9931,
+      "reward": -602.9523,
+      "rejected": 37.6
+    },
+    {
+      "timestep": 500000,
+      "service_rate": 0.8827,
+      "mean_wait": 9.7883,
+      "mean_ride": 8.4649,
+      "p95_wait": 27.6752,
+      "p95_ride": 16.2694,
+      "reward": -586.0573,
+      "rejected": 36.8
+    }
+  ],
+  "final_evaluation": {
+    "service_rate": 0.8854,
+    "mean_wait": 10.3405,
+    "mean_ride": 8.584,
+    "p95_wait": 28.2291,
+    "p95_ride": 16.4426,
+    "reward": -605.793,
+    "rejected": 36.7
+  },
+  "training_time_seconds": 1117.5
+}

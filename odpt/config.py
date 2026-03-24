@@ -31,7 +31,7 @@ class SimulationConfig:
     n_nodes:          int   = 71         # nodes 1-71 available (0 = depot)
 
     # ---- Fleet ----
-    fleet_size:       int   = 10          # MPT On Demand: 6 minibuses
+    fleet_size:       int   = 6          # MPT On Demand: 6 minibuses
     vehicle_capacity: int   = 16         # MPT minibuses: 16 passengers
     depot_node:       int   = 0          # Hal Qormi - Bankieri
 
