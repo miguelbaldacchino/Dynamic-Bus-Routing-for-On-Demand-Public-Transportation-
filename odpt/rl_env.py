@@ -60,15 +60,60 @@ class DARPEnv(gym.Env):
         "composite" (default) - acceptance bonus + cost + wait + ride
         "cost" - pure insertion cost
         "wait" - wait-time focused
+    w_acceptance : float
+        Reward for accepting any request (default 1.0).
+        Higher = agent more aggressively accepts requests.
+    w_wait : float
+        Penalty weight on estimated wait time (default 2.0).
+        Higher = agent prioritises reducing passenger wait.
+    w_ride : float
+        Linear penalty weight on estimated ride time (default 1.0).
+        Higher = agent prioritises reducing in-vehicle time.
+    w_ride_sq : float
+        Quadratic penalty weight on estimated ride time (default 0.5).
+        Acts as a p95_ride proxy — penalises outlier ride times
+        disproportionately. A passenger at 90% of max_ride gets
+        0.81*w_ride_sq penalty vs 0.25*w_ride_sq at 50% of max_ride.
+    w_detour : float
+        Penalty weight on excess detour ratio (default 0.5).
+        Penalises est_ride / direct_time above 1.0x.
+        e.g. a 3x detour gets 2.0*w_detour penalty.
+        Zero penalty when est_ride <= direct_time (no detour).
+    w_cost : float
+        Penalty weight on insertion cost delta (default 0.5).
+        Higher = agent prioritises operational efficiency.
+    w_rejection : float
+        Penalty applied when a request is rejected (default 5.0).
+        Higher = agent more reluctant to reject any request.
     """
 
     metadata = {"render_modes": []}
 
-    def __init__(self, cfg: SimulationConfig = None, reward_mode: str = "composite"):
+    def __init__(
+        self,
+        cfg: SimulationConfig = None,
+        reward_mode: str = "composite",
+        w_acceptance: float = 1.0,
+        w_wait: float = 2.0,
+        w_ride: float = 1.0,
+        w_ride_sq: float = 0.5,
+        w_detour: float = 0.5,
+        w_cost: float = 0.5,
+        w_rejection: float = 5.0,
+    ):
         super().__init__()
 
-        self.cfg = cfg or SimulationConfig()  # use config.py defaults exactly
+        self.cfg         = cfg or SimulationConfig()
         self.reward_mode = reward_mode
+
+        # Reward weights — searchable by Optuna, defaults match original
+        self.w_acceptance = w_acceptance
+        self.w_wait       = w_wait
+        self.w_ride       = w_ride
+        self.w_ride_sq    = w_ride_sq
+        self.w_detour     = w_detour
+        self.w_cost       = w_cost
+        self.w_rejection  = w_rejection
 
         self.n_actions = self.cfg.fleet_size + 1  # 0=reject, 1..K=vehicles
         self.action_space = spaces.Discrete(self.n_actions)
@@ -343,19 +388,45 @@ class DARPEnv(gym.Env):
             return -cost_delta / norm
 
         elif self.reward_mode == "wait":
-            return 1.0 - 3.0 * (est_wait / self.cfg.max_wait)
+            return self.w_acceptance - self.w_wait * (est_wait / self.cfg.max_wait)
 
         else:  # composite
-            acceptance = 1.0
-            wait_pen = -2.0 * (est_wait / self.cfg.max_wait)
-            max_ride = (req.direct_time or 5.0) * self.cfg.ride_factor
-            ride_pen = -1.0 * (est_ride / max(max_ride, 1.0))
-            norm = max(req.direct_time or 1.0, 1.0) * 5
-            cost_pen = -cost_delta / norm
-            return acceptance + 0.5 * cost_pen + 1.5 * wait_pen + 0.5 * ride_pen
+            direct   = max(req.direct_time or 1.0, 1.0)
+            max_ride = direct * self.cfg.ride_factor
+            norm     = direct * 5
+
+            # Normalised ride ratio in [0, 1] — used for both ride terms
+            ride_ratio = est_ride / max(max_ride, 1.0)
+
+            # Wait penalty — linear, normalised by max_wait
+            wait_pen = -self.w_wait * (est_wait / self.cfg.max_wait)
+
+            # Ride penalty — linear term penalises all long rides
+            ride_pen = -self.w_ride * ride_ratio
+
+            # Ride penalty — quadratic term penalises outliers harder.
+            # Proxy for p95_ride: a ride at 90% of max gets 0.81*w_ride_sq
+            # vs 0.25*w_ride_sq at 50% of max. Suppresses the tail.
+            ride_sq_pen = -self.w_ride_sq * (ride_ratio ** 2)
+
+            # Detour penalty — penalises excess routing above direct time.
+            # Only activates when est_ride > direct_time (actual detour).
+            # A 3x detour on a 5-min trip gets 2.0*w_detour penalty.
+            detour      = est_ride / direct
+            detour_pen  = -self.w_detour * max(detour - 1.0, 0.0)
+
+            # Cost penalty — insertion efficiency
+            cost_pen = -self.w_cost * (cost_delta / norm)
+
+            return (self.w_acceptance
+                    + wait_pen
+                    + ride_pen
+                    + ride_sq_pen
+                    + detour_pen
+                    + cost_pen)
 
     def _rejection_penalty(self, req) -> float:
-        return -5.0
+        return -self.w_rejection
 
     # ------------------------------------------------------------------
     # State encoding
