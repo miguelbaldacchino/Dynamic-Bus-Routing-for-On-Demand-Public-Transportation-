@@ -272,11 +272,15 @@ def main():
     # Normalise rewards — this is critical for PPO when reward magnitudes
     # vary widely.  The critic can't learn when returns range from -700 to 0.
     # VecNormalize rescales rewards to ~zero mean, unit variance, making
-    # the value function learnable.  Observations are also normalised.
+    # the value function learnable.
+    #
+    # norm_obs=False: observations are already normalised to [-1, 1] by
+    # _encode_state(). Double-normalising creates a train/eval mismatch
+    # because evaluate_policy() uses raw DARPEnv without VecNormalize.
     from stable_baselines3.common.vec_env import VecNormalize
     vec_env = VecNormalize(
         vec_env,
-        norm_obs=True,       # normalise observations
+        norm_obs=False,      # obs already [-1,1] from _encode_state
         norm_reward=True,    # normalise rewards (the key fix)
         clip_obs=10.0,
         clip_reward=10.0,

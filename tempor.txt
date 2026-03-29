@@ -1,0 +1,535 @@
+============================================================
+Optuna v3 — Lean Search, Proven Fixes Only
+============================================================
+  Trials:    30 (30 remaining)
+  Timesteps: 300,000
+  Envs:      6
+  Obs dims:  74 (anticipatory features disabled)
+  Startup:   10 random, then Bayesian
+
+  Searched (7 params):
+    w_wait(1.5-2.8) w_ride(0.6-1.4) w_rej(8-10)
+    lr(1e-4..4e-4) schedule(const/linear)
+    gamma(0.990-0.996) ent(0.01-0.05)
+  Fixed:
+    w_detour=1.0 w_ride_sq=0.3 w_cost=0.2
+    arch=[128,128] steps=1024 epochs=5
+    batch=128 vf=1.0 lam=0.95 clip=0.2
+    norm_obs=False norm_reward=True
+============================================================
+
+Started: 2026-03-29 00:41:23
+Safe to Ctrl+C — study saved after every trial.
+
+
+  --- Trial 1 ---
+    Reward:  w_wait=1.84  w_ride=1.31  w_rej=8.62
+    PPO:     lr=0.00011(constant)  gamma=0.9930  ent=0.0100
+[I 2026-03-29 00:48:46,816] Trial 0 finished with value: 28.57084592383319 and parameters: {'w_wait': 1.84, 'w_ride': 1.31, 'w_rejection': 8.62, 'lr_start': 0.00011, 'lr_schedule': 'constant', 'gamma': 0.993, 'ent_coef': 0.01}. Best is trial 0 with value: 28.57084592383319.
+
+  Trial 1 result:
+    score:          28.571
+    service_rate:   88.7%
+    mean_wait_all:  22.68 min
+    mean_wait_svd:  12.06 min
+    mean_ride:      8.95 min
+    p95_wait:       28.42 min
+    rejected:       38.7
+    train_time:     421s
+  >>> Best: trial 1  score=28.571  wait_all=22.68  svc=88.7%
+
+  --- Trial 2 ---
+    Reward:  w_wait=2.36  w_ride=0.87  w_rej=9.59
+    PPO:     lr=0.00034(linear)  gamma=0.9930  ent=0.0420
+[I 2026-03-29 00:55:57,826] Trial 1 finished with value: 26.594309148035244 and parameters: {'w_wait': 2.36, 'w_ride': 0.87, 'w_rejection': 9.59, 'lr_start': 0.00034, 'lr_schedule': 'linear', 'gamma': 0.993, 'ent_coef': 0.042}. Best is trial 1 with value: 26.594309148035244.
+
+  Trial 2 result:
+    score:          26.594
+    service_rate:   89.1%
+    mean_wait_all:  20.87 min
+    mean_wait_svd:  10.50 min
+    mean_ride:      8.63 min
+    p95_wait:       28.12 min
+    rejected:       37.3
+    train_time:     408s
+  >>> Best: trial 2  score=26.594  wait_all=20.87  svc=89.1%
+
+  --- Trial 3 ---
+    Reward:  w_wait=2.34  w_ride=1.09  w_rej=8.37
+    PPO:     lr=0.00035(linear)  gamma=0.9950  ent=0.0100
+[I 2026-03-29 01:03:03,281] Trial 2 finished with value: 26.63028313423368 and parameters: {'w_wait': 2.34, 'w_ride': 1.09, 'w_rejection': 8.37, 'lr_start': 0.00035, 'lr_schedule': 'linear', 'gamma': 0.995, 'ent_coef': 0.01}. Best is trial 1 with value: 26.594309148035244.
+
+  Trial 3 result:
+    score:          26.630
+    service_rate:   88.2%
+    mean_wait_all:  20.97 min
+    mean_wait_svd:  9.60 min
+    mean_ride:      8.53 min
+    p95_wait:       27.95 min
+    rejected:       40.5
+    train_time:     411s
+  >>> Best: trial 2  score=26.594  wait_all=20.87  svc=89.1%
+
+  --- Trial 4 ---
+    Reward:  w_wait=1.82  w_ride=0.73  w_rej=9.57
+    PPO:     lr=0.00031(constant)  gamma=0.9953  ent=0.0339
+[I 2026-03-29 01:09:48,033] Trial 3 finished with value: 26.514136748237853 and parameters: {'w_wait': 1.8233826821642323, 'w_ride': 0.7304534265490852, 'w_rejection': 9.567286511282456, 'lr_start': 0.0003067464776656659, 'lr_schedule': 'constant', 'gamma': 0.9953142114186895, 'ent_coef': 0.03393128756340068}. Best is trial 3 with value: 26.514136748237853.
+
+  Trial 4 result:
+    score:          26.514
+    service_rate:   88.9%
+    mean_wait_all:  20.80 min
+    mean_wait_svd:  10.23 min
+    mean_ride:      8.61 min
+    p95_wait:       28.20 min
+    rejected:       37.9
+    train_time:     390s
+  >>> Best: trial 4  score=26.514  wait_all=20.80  svc=88.9%
+
+  --- Trial 5 ---
+    Reward:  w_wait=1.74  w_ride=0.72  w_rej=8.87
+    PPO:     lr=0.00017(constant)  gamma=0.9941  ent=0.0213
+[I 2026-03-29 01:16:37,157] Trial 4 finished with value: 26.556709854063907 and parameters: {'w_wait': 1.7354365729836172, 'w_ride': 0.7201354529142711, 'w_rejection': 8.871358742287917, 'lr_start': 0.00017059142213436728, 'lr_schedule': 'constant', 'gamma': 0.994119558112231, 'ent_coef': 0.021265712464605444}. Best is trial 3 with value: 26.514136748237853.
+
+  Trial 5 result:
+    score:          26.557
+    service_rate:   88.9%
+    mean_wait_all:  20.82 min
+    mean_wait_svd:  10.22 min
+    mean_ride:      8.66 min
+    p95_wait:       28.10 min
+    rejected:       38.0
+    train_time:     394s
+  >>> Best: trial 4  score=26.514  wait_all=20.80  svc=88.9%
+
+  --- Trial 6 ---
+    Reward:  w_wait=2.24  w_ride=1.12  w_rej=9.45
+    PPO:     lr=0.00026(constant)  gamma=0.9915  ent=0.0101
+[I 2026-03-29 01:23:26,917] Trial 5 finished with value: 26.68656241185755 and parameters: {'w_wait': 2.240998891965754, 'w_ride': 1.116560811843883, 'w_rejection': 9.4466812881727, 'lr_start': 0.0002569239745670485, 'lr_schedule': 'constant', 'gamma': 0.9914564063732062, 'ent_coef': 0.01013257815868553}. Best is trial 3 with value: 26.514136748237853.
+
+  Trial 6 result:
+    score:          26.687
+    service_rate:   88.8%
+    mean_wait_all:  20.95 min
+    mean_wait_svd:  10.25 min
+    mean_ride:      8.66 min
+    p95_wait:       28.08 min
+    rejected:       38.4
+    train_time:     395s
+  >>> Best: trial 4  score=26.514  wait_all=20.80  svc=88.9%
+
+  --- Trial 7 ---
+    Reward:  w_wait=1.97  w_ride=0.72  w_rej=9.09
+    PPO:     lr=0.00033(constant)  gamma=0.9913  ent=0.0479
+[I 2026-03-29 01:30:10,906] Trial 6 finished with value: 26.8211482899579 and parameters: {'w_wait': 1.9680890470247352, 'w_ride': 0.7168333962449328, 'w_rejection': 9.085446114062687, 'lr_start': 0.0003281162113843261, 'lr_schedule': 'constant', 'gamma': 0.991281561363892, 'ent_coef': 0.04788578503383958}. Best is trial 3 with value: 26.514136748237853.
+
+  Trial 7 result:
+    score:          26.821
+    service_rate:   87.6%
+    mean_wait_all:  21.22 min
+    mean_wait_svd:  9.23 min
+    mean_ride:      8.44 min
+    p95_wait:       27.74 min
+    rejected:       42.5
+    train_time:     390s
+  >>> Best: trial 4  score=26.514  wait_all=20.80  svc=88.9%
+
+  --- Trial 8 ---
+    Reward:  w_wait=2.62  w_ride=1.03  w_rej=8.87
+    PPO:     lr=0.00013(linear)  gamma=0.9921  ent=0.0323
+[I 2026-03-29 01:36:54,991] Trial 7 finished with value: 26.52648399275452 and parameters: {'w_wait': 2.615828722999154, 'w_ride': 1.027028257527707, 'w_rejection': 8.868917181978244, 'lr_start': 0.00012962869680563718, 'lr_schedule': 'linear', 'gamma': 0.9921342352290949, 'ent_coef': 0.03234949118273197}. Best is trial 3 with value: 26.514136748237853.
+
+  Trial 8 result:
+    score:          26.526
+    service_rate:   89.0%
+    mean_wait_all:  20.83 min
+    mean_wait_svd:  10.38 min
+    mean_ride:      8.58 min
+    p95_wait:       28.19 min
+    rejected:       37.5
+    train_time:     389s
+  >>> Best: trial 4  score=26.514  wait_all=20.80  svc=88.9%
+
+  --- Trial 9 ---
+    Reward:  w_wait=2.22  w_ride=1.35  w_rej=8.31
+    PPO:     lr=0.00035(linear)  gamma=0.9903  ent=0.0286
+[I 2026-03-29 01:43:36,629] Trial 8 finished with value: 27.321770865618795 and parameters: {'w_wait': 2.2240847032485194, 'w_ride': 1.3539119624981186, 'w_rejection': 8.30709126604329, 'lr_start': 0.00034640294268362083, 'lr_schedule': 'linear', 'gamma': 0.9902557777666264, 'ent_coef': 0.028622027439938184}. Best is trial 3 with value: 26.514136748237853.
+
+  Trial 9 result:
+    score:          27.322
+    service_rate:   87.7%
+    mean_wait_all:  21.67 min
+    mean_wait_svd:  9.90 min
+    mean_ride:      8.51 min
+    p95_wait:       28.04 min
+    rejected:       42.0
+    train_time:     386s
+  >>> Best: trial 4  score=26.514  wait_all=20.80  svc=88.9%
+
+  --- Trial 10 ---
+    Reward:  w_wait=1.98  w_ride=1.24  w_rej=8.02
+    PPO:     lr=0.00019(linear)  gamma=0.9949  ent=0.0264
+[I 2026-03-29 01:50:21,839] Trial 9 finished with value: 26.427651576381333 and parameters: {'w_wait': 1.9767354155536432, 'w_ride': 1.2364558178579705, 'w_rejection': 8.021814093454662, 'lr_start': 0.00019460571491821985, 'lr_schedule': 'linear', 'gamma': 0.9949153452476353, 'ent_coef': 0.02640879371636396}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 10 result:
+    score:          26.428
+    service_rate:   89.2%
+    mean_wait_all:  20.70 min
+    mean_wait_svd:  10.46 min
+    mean_ride:      8.64 min
+    p95_wait:       28.17 min
+    rejected:       36.8
+    train_time:     390s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 11 ---
+    Reward:  w_wait=1.57  w_ride=1.23  w_rej=8.01
+    PPO:     lr=0.00020(linear)  gamma=0.9959  ent=0.0180
+[I 2026-03-29 01:57:11,995] Trial 10 finished with value: 26.53993961354454 and parameters: {'w_wait': 1.5654071287877247, 'w_ride': 1.2286900215418077, 'w_rejection': 8.009273370976784, 'lr_start': 0.0001983820653629484, 'lr_schedule': 'linear', 'gamma': 0.9958624298892532, 'ent_coef': 0.01797580388081251}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 11 result:
+    score:          26.540
+    service_rate:   89.3%
+    mean_wait_all:  20.81 min
+    mean_wait_svd:  10.68 min
+    mean_ride:      8.64 min
+    p95_wait:       28.17 min
+    rejected:       36.5
+    train_time:     395s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 12 ---
+    Reward:  w_wait=1.99  w_ride=0.87  w_rej=9.86
+    PPO:     lr=0.00025(constant)  gamma=0.9945  ent=0.0310
+[I 2026-03-29 03:03:54,300] Trial 11 finished with value: 27.6608602918226 and parameters: {'w_wait': 1.9943740067113667, 'w_ride': 0.8726001052580106, 'w_rejection': 9.864369853195056, 'lr_start': 0.00024729061524430597, 'lr_schedule': 'constant', 'gamma': 0.9944555491657199, 'ent_coef': 0.03098638535971676}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 12 result:
+    score:          27.661
+    service_rate:   86.2%
+    mean_wait_all:  22.11 min
+    mean_wait_svd:  8.68 min
+    mean_ride:      8.36 min
+    p95_wait:       27.39 min
+    rejected:       47.3
+    train_time:     388s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 13 ---
+    Reward:  w_wait=1.62  w_ride=0.61  w_rej=9.34
+    PPO:     lr=0.00016(linear)  gamma=0.9959  ent=0.0171
+[I 2026-03-29 03:10:48,880] Trial 12 finished with value: 28.128715257116987 and parameters: {'w_wait': 1.6153005792101616, 'w_ride': 0.609689568126965, 'w_rejection': 9.337045549969336, 'lr_start': 0.00015784633509814536, 'lr_schedule': 'linear', 'gamma': 0.9959446568406155, 'ent_coef': 0.017102578806645844}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 13 result:
+    score:          28.129
+    service_rate:   88.7%
+    mean_wait_all:  22.28 min
+    mean_wait_svd:  11.62 min
+    mean_ride:      8.86 min
+    p95_wait:       28.49 min
+    rejected:       38.7
+    train_time:     400s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 14 ---
+    Reward:  w_wait=1.98  w_ride=0.91  w_rej=9.97
+    PPO:     lr=0.00025(constant)  gamma=0.9948  ent=0.0373
+[I 2026-03-29 03:17:30,432] Trial 13 finished with value: 28.08063401164356 and parameters: {'w_wait': 1.9838528534984554, 'w_ride': 0.9075709562881797, 'w_rejection': 9.967597685918554, 'lr_start': 0.00024940677911125384, 'lr_schedule': 'constant', 'gamma': 0.9948189234393875, 'ent_coef': 0.03730388003000592}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 14 result:
+    score:          28.081
+    service_rate:   85.7%
+    mean_wait_all:  22.55 min
+    mean_wait_svd:  8.59 min
+    mean_ride:      8.31 min
+    p95_wait:       27.43 min
+    rejected:       49.1
+    train_time:     386s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 15 ---
+    Reward:  w_wait=1.82  w_ride=1.20  w_rej=9.20
+    PPO:     lr=0.00021(constant)  gamma=0.9939  ent=0.0249
+[I 2026-03-29 03:24:14,141] Trial 14 finished with value: 26.701922095738844 and parameters: {'w_wait': 1.8166715523638086, 'w_ride': 1.2001455224529634, 'w_rejection': 9.195323839470682, 'lr_start': 0.00020987309391792266, 'lr_schedule': 'constant', 'gamma': 0.9939175657831424, 'ent_coef': 0.02489986273312169}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 15 result:
+    score:          26.702
+    service_rate:   88.2%
+    mean_wait_all:  21.01 min
+    mean_wait_svd:  9.65 min
+    mean_ride:      8.57 min
+    p95_wait:       28.06 min
+    rejected:       40.5
+    train_time:     389s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 16 ---
+    Reward:  w_wait=2.61  w_ride=0.96  w_rej=9.64
+    PPO:     lr=0.00028(linear)  gamma=0.9952  ent=0.0244
+[I 2026-03-29 03:30:55,162] Trial 15 finished with value: 27.091837338644034 and parameters: {'w_wait': 2.6062177240422173, 'w_ride': 0.9551248810801333, 'w_rejection': 9.644225567338573, 'lr_start': 0.00028445343426322406, 'lr_schedule': 'linear', 'gamma': 0.995219370766593, 'ent_coef': 0.024368771755710936}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 16 result:
+    score:          27.092
+    service_rate:   88.3%
+    mean_wait_all:  21.39 min
+    mean_wait_svd:  10.22 min
+    mean_ride:      8.58 min
+    p95_wait:       28.21 min
+    rejected:       40.0
+    train_time:     386s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 17 ---
+    Reward:  w_wait=2.08  w_ride=0.76  w_rej=8.67
+    PPO:     lr=0.00020(constant)  gamma=0.9937  ent=0.0141
+[I 2026-03-29 03:37:46,975] Trial 16 finished with value: 26.685433447169114 and parameters: {'w_wait': 2.077828419385092, 'w_ride': 0.7570362553925556, 'w_rejection': 8.674782386117537, 'lr_start': 0.00019727252878835595, 'lr_schedule': 'constant', 'gamma': 0.9937223385864892, 'ent_coef': 0.014146178929191087}. Best is trial 9 with value: 26.427651576381333.
+
+  Trial 17 result:
+    score:          26.685
+    service_rate:   88.6%
+    mean_wait_all:  20.97 min
+    mean_wait_svd:  10.07 min
+    mean_ride:      8.63 min
+    p95_wait:       28.11 min
+    rejected:       39.0
+    train_time:     397s
+  >>> Best: trial 10  score=26.428  wait_all=20.70  svc=89.2%
+
+  --- Trial 18 ---
+    Reward:  w_wait=1.67  w_ride=0.60  w_rej=8.01
+    PPO:     lr=0.00015(linear)  gamma=0.9954  ent=0.0367
+[I 2026-03-29 03:44:37,288] Trial 17 finished with value: 26.26696089651305 and parameters: {'w_wait': 1.6727507924318439, 'w_ride': 0.603889296790791, 'w_rejection': 8.012949436173818, 'lr_start': 0.00015138226590379576, 'lr_schedule': 'linear', 'gamma': 0.9953816480518429, 'ent_coef': 0.036734354758482135}. Best is trial 17 with value: 26.26696089651305.
+
+  Trial 18 result:
+    score:          26.267
+    service_rate:   89.2%
+    mean_wait_all:  20.56 min
+    mean_wait_svd:  10.28 min
+    mean_ride:      8.60 min
+    p95_wait:       28.18 min
+    rejected:       36.9
+    train_time:     395s
+  >>> Best: trial 18  score=26.267  wait_all=20.56  svc=89.2%
+
+  --- Trial 19 ---
+    Reward:  w_wait=1.53  w_ride=0.61  w_rej=8.04
+    PPO:     lr=0.00014(linear)  gamma=0.9934  ent=0.0484
+[I 2026-03-29 03:51:25,158] Trial 18 finished with value: 26.647422922822827 and parameters: {'w_wait': 1.5311210124266112, 'w_ride': 0.6118339905360092, 'w_rejection': 8.037189999772488, 'lr_start': 0.00014285295146181163, 'lr_schedule': 'linear', 'gamma': 0.9934495662360014, 'ent_coef': 0.048400005732957045}. Best is trial 17 with value: 26.26696089651305.
+
+  Trial 19 result:
+    score:          26.647
+    service_rate:   89.0%
+    mean_wait_all:  20.94 min
+    mean_wait_svd:  10.52 min
+    mean_ride:      8.59 min
+    p95_wait:       28.17 min
+    rejected:       37.5
+    train_time:     393s
+  >>> Best: trial 18  score=26.267  wait_all=20.56  svc=89.2%
+
+  --- Trial 20 ---
+    Reward:  w_wait=1.67  w_ride=1.40  w_rej=8.26
+    PPO:     lr=0.00011(linear)  gamma=0.9945  ent=0.0383
+[I 2026-03-29 03:58:15,624] Trial 19 finished with value: 26.632590055044044 and parameters: {'w_wait': 1.6733195373411787, 'w_ride': 1.396034145793102, 'w_rejection': 8.261058067007184, 'lr_start': 0.00010641418291894838, 'lr_schedule': 'linear', 'gamma': 0.994541296992382, 'ent_coef': 0.038264176163013544}. Best is trial 17 with value: 26.26696089651305.
+
+  Trial 20 result:
+    score:          26.633
+    service_rate:   89.3%
+    mean_wait_all:  20.90 min
+    mean_wait_svd:  10.71 min
+    mean_ride:      8.66 min
+    p95_wait:       28.16 min
+    rejected:       36.7
+    train_time:     395s
+  >>> Best: trial 18  score=26.267  wait_all=20.56  svc=89.2%
+
+  --- Trial 21 ---
+    Reward:  w_wait=2.46  w_ride=1.25  w_rej=8.51
+    PPO:     lr=0.00017(linear)  gamma=0.9956  ent=0.0262
+[I 2026-03-29 04:04:59,636] Trial 20 finished with value: 26.321280501969113 and parameters: {'w_wait': 2.464156330059131, 'w_ride': 1.2516062771672174, 'w_rejection': 8.513086211986414, 'lr_start': 0.00017098900844139523, 'lr_schedule': 'linear', 'gamma': 0.9955570445936796, 'ent_coef': 0.026248702864070876}. Best is trial 17 with value: 26.26696089651305.
+
+  Trial 21 result:
+    score:          26.321
+    service_rate:   89.4%
+    mean_wait_all:  20.60 min
+    mean_wait_svd:  10.51 min
+    mean_ride:      8.63 min
+    p95_wait:       28.18 min
+    rejected:       36.3
+    train_time:     389s
+  >>> Best: trial 18  score=26.267  wait_all=20.56  svc=89.2%
+
+  --- Trial 22 ---
+    Reward:  w_wait=2.52  w_ride=1.25  w_rej=8.53
+    PPO:     lr=0.00017(linear)  gamma=0.9954  ent=0.0277
+[I 2026-03-29 04:11:46,914] Trial 21 finished with value: 26.618690005145364 and parameters: {'w_wait': 2.5209206442602183, 'w_ride': 1.2528624232366634, 'w_rejection': 8.533094138621422, 'lr_start': 0.00017192164059559478, 'lr_schedule': 'linear', 'gamma': 0.9954451867555517, 'ent_coef': 0.027711324032378516}. Best is trial 17 with value: 26.26696089651305.
+
+  Trial 22 result:
+    score:          26.619
+    service_rate:   89.0%
+    mean_wait_all:  20.89 min
+    mean_wait_svd:  10.45 min
+    mean_ride:      8.67 min
+    p95_wait:       27.96 min
+    rejected:       37.5
+    train_time:     392s
+  >>> Best: trial 18  score=26.267  wait_all=20.56  svc=89.2%
+
+  --- Trial 23 ---
+    Reward:  w_wait=2.78  w_ride=1.12  w_rej=8.20
+    PPO:     lr=0.00012(linear)  gamma=0.9957  ent=0.0216
+[I 2026-03-29 04:18:28,519] Trial 22 finished with value: 26.822305915324346 and parameters: {'w_wait': 2.7792138475979877, 'w_ride': 1.1156056943257446, 'w_rejection': 8.200432603527204, 'lr_start': 0.00012221757311838672, 'lr_schedule': 'linear', 'gamma': 0.995654388206449, 'ent_coef': 0.02156099097942276}. Best is trial 17 with value: 26.26696089651305.
+
+  Trial 23 result:
+    score:          26.822
+    service_rate:   89.1%
+    mean_wait_all:  21.06 min
+    mean_wait_svd:  10.70 min
+    mean_ride:      8.71 min
+    p95_wait:       28.22 min
+    rejected:       37.3
+    train_time:     387s
+  >>> Best: trial 18  score=26.267  wait_all=20.56  svc=89.2%
+
+  --- Trial 24 ---
+    Reward:  w_wait=2.42  w_ride=1.21  w_rej=8.46
+    PPO:     lr=0.00015(linear)  gamma=0.9947  ent=0.0266
+[I 2026-03-29 04:25:14,965] Trial 23 finished with value: 26.129941986675927 and parameters: {'w_wait': 2.418246028939973, 'w_ride': 1.2060255294907303, 'w_rejection': 8.463588452290944, 'lr_start': 0.00015366411401506513, 'lr_schedule': 'linear', 'gamma': 0.9946778473330677, 'ent_coef': 0.026585257597083106}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 24 result:
+    score:          26.130
+    service_rate:   89.5%
+    mean_wait_all:  20.43 min
+    mean_wait_svd:  10.39 min
+    mean_ride:      8.59 min
+    p95_wait:       28.08 min
+    rejected:       36.1
+    train_time:     392s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+  --- Trial 25 ---
+    Reward:  w_wait=2.45  w_ride=1.16  w_rej=8.40
+    PPO:     lr=0.00014(linear)  gamma=0.9945  ent=0.0185
+[I 2026-03-29 04:32:01,784] Trial 24 finished with value: 27.41266424561623 and parameters: {'w_wait': 2.446037449974522, 'w_ride': 1.1641745587448682, 'w_rejection': 8.400914337160117, 'lr_start': 0.00014027958279490705, 'lr_schedule': 'linear', 'gamma': 0.9945021279485702, 'ent_coef': 0.018544922632222516}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 25 result:
+    score:          27.413
+    service_rate:   88.6%
+    mean_wait_all:  21.68 min
+    mean_wait_svd:  10.84 min
+    mean_ride:      8.63 min
+    p95_wait:       28.23 min
+    rejected:       39.1
+    train_time:     392s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+  --- Trial 26 ---
+    Reward:  w_wait=2.66  w_ride=1.04  w_rej=8.82
+    PPO:     lr=0.00015(linear)  gamma=0.9955  ent=0.0402
+[I 2026-03-29 04:38:47,604] Trial 25 finished with value: 27.245763792118723 and parameters: {'w_wait': 2.662627550032474, 'w_ride': 1.043200296399213, 'w_rejection': 8.81673386781369, 'lr_start': 0.00015081745152851318, 'lr_schedule': 'linear', 'gamma': 0.9954867132542021, 'ent_coef': 0.04015494959234247}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 26 result:
+    score:          27.246
+    service_rate:   88.9%
+    mean_wait_all:  21.46 min
+    mean_wait_svd:  10.90 min
+    mean_ride:      8.73 min
+    p95_wait:       28.36 min
+    rejected:       38.1
+    train_time:     390s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+  --- Trial 27 ---
+    Reward:  w_wait=2.45  w_ride=1.31  w_rej=8.48
+    PPO:     lr=0.00017(linear)  gamma=0.9960  ent=0.0345
+[I 2026-03-29 04:45:34,013] Trial 26 finished with value: 26.50427263993602 and parameters: {'w_wait': 2.447469535244195, 'w_ride': 1.3062773236441905, 'w_rejection': 8.484509064409078, 'lr_start': 0.00017456283603956756, 'lr_schedule': 'linear', 'gamma': 0.9959984242586373, 'ent_coef': 0.03452266051387687}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 27 result:
+    score:          26.504
+    service_rate:   88.8%
+    mean_wait_all:  20.81 min
+    mean_wait_svd:  10.14 min
+    mean_ride:      8.60 min
+    p95_wait:       28.01 min
+    rejected:       38.2
+    train_time:     392s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+  --- Trial 28 ---
+    Reward:  w_wait=2.22  w_ride=1.16  w_rej=8.21
+    PPO:     lr=0.00012(linear)  gamma=0.9933  ent=0.0290
+[I 2026-03-29 04:52:28,653] Trial 27 finished with value: 27.337531678790562 and parameters: {'w_wait': 2.2150990307808205, 'w_ride': 1.16103231830485, 'w_rejection': 8.205218562355212, 'lr_start': 0.00012322509404521373, 'lr_schedule': 'linear', 'gamma': 0.99329145866318, 'ent_coef': 0.028978969344293733}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 28 result:
+    score:          27.338
+    service_rate:   89.1%
+    mean_wait_all:  21.56 min
+    mean_wait_svd:  11.26 min
+    mean_ride:      8.72 min
+    p95_wait:       28.35 min
+    rejected:       37.3
+    train_time:     400s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+  --- Trial 29 ---
+    Reward:  w_wait=2.31  w_ride=1.29  w_rej=8.68
+    PPO:     lr=0.00021(linear)  gamma=0.9943  ent=0.0203
+[I 2026-03-29 04:59:21,754] Trial 28 finished with value: 27.147720186314338 and parameters: {'w_wait': 2.3073519146746713, 'w_ride': 1.2869396270374893, 'w_rejection': 8.682818474987046, 'lr_start': 0.00021376937959810392, 'lr_schedule': 'linear', 'gamma': 0.9942620712157534, 'ent_coef': 0.02025926777814974}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 29 result:
+    score:          27.148
+    service_rate:   89.0%
+    mean_wait_all:  21.37 min
+    mean_wait_svd:  10.92 min
+    mean_ride:      8.73 min
+    p95_wait:       28.35 min
+    rejected:       37.7
+    train_time:     394s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+  --- Trial 30 ---
+    Reward:  w_wait=2.11  w_ride=0.81  w_rej=8.55
+    PPO:     lr=0.00011(linear)  gamma=0.9927  ent=0.0236
+[I 2026-03-29 05:06:06,772] Trial 29 finished with value: 27.54496521092382 and parameters: {'w_wait': 2.109462851164621, 'w_ride': 0.8081906099466044, 'w_rejection': 8.546931849609194, 'lr_start': 0.00011356684169212026, 'lr_schedule': 'linear', 'gamma': 0.9926624929541663, 'ent_coef': 0.023586501271541233}. Best is trial 23 with value: 26.129941986675927.
+
+  Trial 30 result:
+    score:          27.545
+    service_rate:   89.0%
+    mean_wait_all:  21.75 min
+    mean_wait_svd:  11.35 min
+    mean_ride:      8.76 min
+    p95_wait:       28.26 min
+    rejected:       37.7
+    train_time:     390s
+  >>> Best: trial 24  score=26.130  wait_all=20.43  svc=89.5%
+
+============================================================
+SEARCH v3 COMPLETE
+============================================================
+  Time: 3.4 hours
+  Trials: 30 valid / 30 total
+
+  Metric                     Best
+  --------------------------------
+  score                    26.130
+  service_rate             89.5%
+  mean_wait_all            20.43
+  mean_wait_served         10.39
+  mean_ride                 8.59
+  rejected                  36.1
+
+  Config (trial #24):
+    w_wait=2.418  w_ride=1.206  w_rej=8.464
+    lr=0.000154(linear)  gamma=0.9947  ent=0.02659
+
+  Saved: rl_outputs/tune_v3\best_config.json
+  Saved: rl_outputs/tune_v3\all_trials.csv
+
+  TOP 5:
+  #      score   w_all    svc   wait  rej
+  24    26.130  20.43 89.5%  10.39   36
+  18    26.267  20.56 89.2%  10.28   37
+  21    26.321  20.60 89.4%  10.51   36
+  10    26.428  20.70 89.2%  10.46   37
+  27    26.504  20.81 88.8%  10.14   38
+
+  Next: python rl_train_from_tune.py --config rl_outputs/tune_v3\best_config.json

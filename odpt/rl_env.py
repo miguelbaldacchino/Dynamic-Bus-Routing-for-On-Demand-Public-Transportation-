@@ -37,7 +37,13 @@ from malta_travel import DEFAULT_COORDS, make_travel_fn
 MAX_VEHICLES = 8          # padded (fleet <= 6, room for sensitivity)
 OBS_PER_VEHICLE = 8       # see _encode_state
 OBS_REQUEST = 6
-OBS_GLOBAL = 4
+
+# Anticipatory features flag — set to True for v4 ablation study.
+# When False: 4 global features (74 dims total) — v1/v3 baseline.
+# When True:  8 global features (78 dims total) — v2/v4 with demand forecast.
+USE_ANTICIPATORY_FEATURES = False
+
+OBS_GLOBAL = 8 if USE_ANTICIPATORY_FEATURES else 4
 OBS_SIZE = MAX_VEHICLES * OBS_PER_VEHICLE + OBS_REQUEST + OBS_GLOBAL
 
 
@@ -139,6 +145,9 @@ class DARPEnv(gym.Env):
         self._vehicle_insertions: dict[str, tuple] = {}
         self._action_mask_array: np.ndarray = np.zeros(self.n_actions, dtype=np.int8)
 
+        # Anticipatory features — tracked per-episode
+        self._n_rejections: int = 0
+
     # ------------------------------------------------------------------
     # sb3-contrib MaskablePPO interface
     # ------------------------------------------------------------------
@@ -162,6 +171,7 @@ class DARPEnv(gym.Env):
         self._requests = {}
         self._step_count = 0
         self._sim_time = 0.0
+        self._n_rejections = 0
 
         self._vehicles = {}
         self._vehicle_ids = []
@@ -209,6 +219,7 @@ class DARPEnv(gym.Env):
             req.status = "REJECTED"
             reward = self._rejection_penalty(req)
             info["rejected"] = True
+            self._n_rejections += 1
         else:
             # ASSIGN to vehicle (1-indexed action -> vehicle_ids[action-1])
             vid = self._vehicle_ids[action - 1]
@@ -478,6 +489,8 @@ class DARPEnv(gym.Env):
             obs[req_base + 5] = 0.0
 
         g_base = req_base + OBS_REQUEST
+
+        # --- Original global features (4) ---
         obs[g_base + 0] = self._sim_time / max(self.cfg.service_end, 1)
         n_busy = sum(1 for v in self._vehicles.values()
                      if v.plan or v.in_transit_stop is not None)
@@ -486,6 +499,29 @@ class DARPEnv(gym.Env):
         obs[g_base + 2] = n_served / max(self.cfg.n_requests, 1)
         from malta_travel import congestion_factor
         obs[g_base + 3] = (congestion_factor(self._sim_time) - 0.5) * 2
+
+        # --- Anticipatory features (4 new — gated by USE_ANTICIPATORY_FEATURES) ---
+        if USE_ANTICIPATORY_FEATURES:
+            # Feature 5: Current demand intensity (higher = busier)
+            current_rate = arrival_rate(self._sim_time, self.cfg)
+            base_rate    = getattr(self.cfg, 'inter_arrival', 3.0)
+            obs[g_base + 4] = min((base_rate / max(current_rate, 0.1)) / 2.5, 1.0)
+
+            # Feature 6: Demand lookahead — intensity 30 min from now
+            future_t    = min(self._sim_time + 30, self.cfg.service_end)
+            future_rate = arrival_rate(future_t, self.cfg)
+            obs[g_base + 5] = min((base_rate / max(future_rate, 0.1)) / 2.5, 1.0)
+
+            # Feature 7: Fleet spare capacity (total free seats / total seats)
+            total_onboard  = sum(len(v.onboard) for v in self._vehicles.values())
+            total_capacity = sum(v.capacity for v in self._vehicles.values())
+            obs[g_base + 6] = 1.0 - (total_onboard / max(total_capacity, 1))
+
+            # Feature 8: Recent rejection pressure (rejections / decisions so far)
+            obs[g_base + 7] = min(
+                self._n_rejections / max(self._step_count, 1), 1.0
+            )
+
         return obs
 
     # ------------------------------------------------------------------

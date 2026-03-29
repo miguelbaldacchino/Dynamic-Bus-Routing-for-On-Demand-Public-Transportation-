@@ -184,17 +184,40 @@ def compute_objective(results: list[dict], n_requests: int) -> tuple[float, dict
 
 
 # ---------------------------------------------------------------------------
-# Evaluation — with in-progress flush
+# Peak hour definitions (sim time, t=0 is 05:30)
+# From config.py Malta demand profile:
+#   Morning peak: 07:00-09:00 = t=90-210  (interval / 2.0)
+#   Evening peak: 15:00-18:00 = t=570-750 (interval / 1.8)
+# ---------------------------------------------------------------------------
+PEAK_WINDOWS = [(90, 210), (570, 750)]
+
+
+def _is_peak(t: float) -> bool:
+    """True if sim time t falls within a demand peak window."""
+    return any(lo <= t < hi for lo, hi in PEAK_WINDOWS)
+
+
+# ---------------------------------------------------------------------------
+# Evaluation — with in-progress flush + thesis metrics
 # ---------------------------------------------------------------------------
 
 def evaluate_policy(model, cfg, n_episodes: int = 10) -> tuple[list[dict], dict]:
     """
     Evaluate a trained model over held-out episodes.
 
-    Key difference from v1: after the last step, we advance vehicles
-    forward to complete all in-progress stops. This ensures passengers
-    who are ASSIGNED or ONBOARD at episode end get counted as served
-    (if they complete) rather than being lost.
+    Returns (raw_results_list, aggregated_metrics_dict).
+
+    Standard metrics: service_rate, mean_wait, p95_wait, mean_ride,
+        p95_ride, mean_detour, rejected, reward.
+
+    Thesis-specific additions:
+      peak_mean_wait        — mean wait for requests arriving during peaks
+      peak_rejection_rate   — rejection rate during peaks only
+      offpeak_mean_wait     — mean wait outside peaks
+      offpeak_rejection_rate— rejection rate outside peaks
+      load_std              — std dev of vehicle onboard counts across
+                              the fleet, sampled at each decision step.
+                              Low = balanced assignment. High = lopsided.
     """
     from rl_env import DARPEnv
     from config import SimulationConfig
@@ -202,7 +225,7 @@ def evaluate_policy(model, cfg, n_episodes: int = 10) -> tuple[list[dict], dict]
     results = []
     for i in range(n_episodes):
         eval_cfg = SimulationConfig(
-            seed=2000 + i,       # different seed range from v1 (1000+i)
+            seed=2000 + i,
             fleet_size=cfg.fleet_size,
             vehicle_capacity=cfg.vehicle_capacity,
             depot_node=cfg.depot_node,
@@ -217,46 +240,91 @@ def evaluate_policy(model, cfg, n_episodes: int = 10) -> tuple[list[dict], dict]
         done   = False
         total_reward = 0.0
 
+        # Track fleet load balance: sample vehicle loads at each step
+        load_samples = []
+
         for _ in range(cfg.n_requests * 2):
             if done:
                 break
+
+            # Sample fleet load distribution before this decision
+            loads = [len(v.onboard) for v in env._vehicles.values()]
+            if any(l > 0 for l in loads):  # skip all-zero (idle fleet)
+                load_samples.append(float(np.std(loads)))
+
             mask = env.action_masks()
             action, _ = model.predict(obs, deterministic=True, action_masks=mask)
             obs, reward, terminated, truncated, _ = env.step(int(action))
             total_reward += reward
             done = terminated or truncated
 
-        # Flush in-progress: advance vehicles far enough to complete
-        # all remaining stops. Use a time far past service_end.
-        flush_time = cfg.service_end + 500  # well past any remaining stop
+        # Flush in-progress passengers
+        flush_time = cfg.service_end + 500
         env._advance_vehicles_to(flush_time)
 
+        # --- Standard summary ---
         summary = env.episode_summary()
         summary["reward"] = total_reward
 
-        # Compute detour ratio
+        # --- Detour ratio ---
         reqs = env._requests
-        detours = [
-            r.detour_ratio for r in reqs.values()
-            if hasattr(r, 'detour_ratio') and r.detour_ratio is not None
-        ]
-        if not detours:
-            # Fallback: compute manually
-            detours = []
-            for r in reqs.values():
-                if (r.pickup_time is not None and r.dropoff_time is not None
-                        and r.direct_time and r.direct_time > 0):
-                    detours.append(
-                        (r.dropoff_time - r.pickup_time) / r.direct_time
-                    )
+        detours = []
+        for r in reqs.values():
+            if (r.pickup_time is not None and r.dropoff_time is not None
+                    and r.direct_time and r.direct_time > 0):
+                detours.append((r.dropoff_time - r.pickup_time) / r.direct_time)
         summary["mean_detour"] = float(np.mean(detours)) if detours else None
+
+        # --- Peak vs off-peak breakdown ---
+        peak_waits    = []
+        offpeak_waits = []
+        peak_total    = 0
+        peak_rejected = 0
+        offpeak_total    = 0
+        offpeak_rejected = 0
+
+        for r in reqs.values():
+            is_pk = _is_peak(r.request_time)
+            if is_pk:
+                peak_total += 1
+                if r.status == "REJECTED":
+                    peak_rejected += 1
+                elif r.pickup_time is not None:
+                    peak_waits.append(r.pickup_time - r.request_time)
+            else:
+                offpeak_total += 1
+                if r.status == "REJECTED":
+                    offpeak_rejected += 1
+                elif r.pickup_time is not None:
+                    offpeak_waits.append(r.pickup_time - r.request_time)
+
+        summary["peak_mean_wait"] = (
+            float(np.mean(peak_waits)) if peak_waits else None
+        )
+        summary["peak_rejection_rate"] = (
+            peak_rejected / max(peak_total, 1)
+        )
+        summary["offpeak_mean_wait"] = (
+            float(np.mean(offpeak_waits)) if offpeak_waits else None
+        )
+        summary["offpeak_rejection_rate"] = (
+            offpeak_rejected / max(offpeak_total, 1)
+        )
+
+        # --- Load balance ---
+        summary["load_std"] = (
+            float(np.mean(load_samples)) if load_samples else 0.0
+        )
+
         results.append(summary)
 
+    # --- Aggregate across episodes ---
     def _mean(key):
         vals = [r[key] for r in results if r.get(key) is not None]
         return float(np.mean(vals)) if vals else None
 
     return results, {
+        # Standard
         "service_rate": _mean("service_rate"),
         "mean_wait":    _mean("mean_wait"),
         "p95_wait":     _mean("p95_wait"),
@@ -265,11 +333,17 @@ def evaluate_policy(model, cfg, n_episodes: int = 10) -> tuple[list[dict], dict]
         "mean_detour":  _mean("mean_detour"),
         "rejected":     _mean("rejected"),
         "reward":       _mean("reward"),
+        # Thesis additions
+        "peak_mean_wait":         _mean("peak_mean_wait"),
+        "peak_rejection_rate":    _mean("peak_rejection_rate"),
+        "offpeak_mean_wait":      _mean("offpeak_mean_wait"),
+        "offpeak_rejection_rate": _mean("offpeak_rejection_rate"),
+        "load_std":               _mean("load_std"),
     }
 
 
 # ---------------------------------------------------------------------------
-# TensorBoard eval callback
+# TensorBoard eval callback — logs all thesis metrics
 # ---------------------------------------------------------------------------
 
 def make_eval_callback(cfg, eval_freq: int):
@@ -292,6 +366,7 @@ def make_eval_callback(cfg, eval_freq: int):
                 mw_all = ((sr * n * mw) + (rej * MAX_WAIT)) / max(sr * n + rej, 1)
                 rr  = rej / max(n, 1)
 
+                # --- Core eval metrics ---
                 self.logger.record("eval/service_rate",   sr)
                 self.logger.record("eval/mean_wait",      mw)
                 self.logger.record("eval/mean_wait_all",  mw_all)
@@ -301,6 +376,24 @@ def make_eval_callback(cfg, eval_freq: int):
                 self.logger.record("eval/mean_detour",    metrics["mean_detour"]  or 0)
                 self.logger.record("eval/rejected",       rej)
                 self.logger.record("eval/rejection_rate", rr)
+
+                # --- Peak vs off-peak (anticipatory behaviour evidence) ---
+                self.logger.record("eval/peak_mean_wait",
+                                   metrics["peak_mean_wait"] or 0)
+                self.logger.record("eval/peak_rejection_rate",
+                                   metrics["peak_rejection_rate"] or 0)
+                self.logger.record("eval/offpeak_mean_wait",
+                                   metrics["offpeak_mean_wait"] or 0)
+                self.logger.record("eval/offpeak_rejection_rate",
+                                   metrics["offpeak_rejection_rate"] or 0)
+
+                # --- Fleet utilisation balance ---
+                self.logger.record("eval/load_std",
+                                   metrics["load_std"] or 0)
+
+                # --- Gap vs greedy baseline ---
+                self.logger.record("eval/greedy_gap_wait", mw - GREEDY_WAIT)
+
                 self.logger.dump(self.num_timesteps)
 
             return True

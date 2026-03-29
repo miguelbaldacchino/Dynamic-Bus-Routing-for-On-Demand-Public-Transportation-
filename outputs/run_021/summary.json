@@ -1,0 +1,51 @@
+{
+  "config": {
+    "seed": 400,
+    "service_end": 1020.0,
+    "horizon": 1140.0,
+    "n_requests": 400,
+    "inter_arrival": 3.0,
+    "demand_profile": "malta",
+    "stochastic_arrivals": true,
+    "n_nodes": 71,
+    "fleet_size": 6,
+    "vehicle_capacity": 16,
+    "depot_node": 0,
+    "ride_factor": 2.5,
+    "max_wait": 30.0,
+    "ride_time_margin": 3.0,
+    "travel_noise": 0.15,
+    "weights": [
+      1.0,
+      2.0,
+      2.5
+    ],
+    "policy": "rl (1mil run06)",
+    "sa_initial_temp": 5000.0,
+    "sa_cooling_rate": 0.995,
+    "sa_iterations": 5000,
+    "sa_time_limit": 0.3
+  },
+  "metrics": {
+    "total_requests": 362,
+    "served": 312,
+    "rejected": 50,
+    "in_progress": 0,
+    "service_rate": 0.861878453038674,
+    "mean_wait": 15.032678768825969,
+    "p95_wait": 31.375327813360606,
+    "mean_ride": 9.1228755164195,
+    "p95_ride": 17.57245681417289,
+    "mean_detour_ratio": 1.3043440891446256,
+    "p95_detour_ratio": 1.9954707975860952,
+    "total_distance": 3707.5457136126483,
+    "improvements": 0,
+    "mean_latency_ms": 3.444045946742948,
+    "p95_latency_ms": 4.896128177642822,
+    "violations_total": 26,
+    "violations_wait": 25,
+    "violations_ride": 1,
+    "mean_wait_excess": 1.9754941776119528,
+    "mean_ride_excess": 0.6474676194202402
+  }
+}

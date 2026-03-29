@@ -73,6 +73,9 @@ def main():
     print(f"    vf_coef     = {cfg['vf_coef']:.4f}")
     print(f"    gae_lambda  = {cfg['gae_lambda']:.4f}")
     print(f"    clip_range  = {cfg['clip_range']}")
+    print(f"    net_arch    = {cfg.get('net_arch', [128, 128])}")
+    print(f"    norm_obs    = {cfg.get('norm_obs', False)}")
+    print(f"    norm_reward = {cfg.get('norm_reward', True)}")
     print(f"    timesteps   = {timesteps:,}")
     print("=" * 60)
 
@@ -85,7 +88,15 @@ def main():
     from config import SimulationConfig
     from rl_env import DARPEnv
     from rl_train import make_run_dir
-    from rl_tune import evaluate_policy, MAX_WAIT
+    
+    # Import evaluate_policy — prefer v3, fall back to v2, fall back to v1
+    try:
+        from rl_tune_v3 import evaluate_policy, MAX_WAIT
+    except ImportError:
+        try:
+            from rl_tune_v2 import evaluate_policy, MAX_WAIT
+        except ImportError:
+            from rl_tune import evaluate_policy, MAX_WAIT
 
     if args.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -125,7 +136,9 @@ def main():
 
     vec_env = SubprocVecEnv([make_env(42 + i) for i in range(n_envs)])
     vec_env = VecNormalize(
-        vec_env, norm_obs=True, norm_reward=True,
+        vec_env,
+        norm_obs=cfg.get("norm_obs", False),      # v2/v3: False (obs already [-1,1])
+        norm_reward=cfg.get("norm_reward", True),  # critical fix from run005
         clip_obs=10.0, clip_reward=10.0, gamma=cfg["gamma"],
     )
 
@@ -144,13 +157,31 @@ def main():
     if lr_schedule == "linear":
         learning_rate = lambda progress: lr_start * progress
         print(f"  LR: linear {lr_start:.6f} -> 0.0")
+    elif lr_schedule == "cosine":
+        import math as _math
+        learning_rate = lambda progress: (
+            lr_start * 0.5 * (1 + _math.cos(_math.pi * (1 - progress)))
+        )
+        print(f"  LR: cosine {lr_start:.6f} -> ~0.0")
+    elif lr_schedule == "warmup_cosine":
+        import math as _math
+        _warmup_frac = 0.1
+        def learning_rate(progress):
+            elapsed = 1.0 - progress
+            if elapsed < _warmup_frac:
+                return lr_start * (elapsed / _warmup_frac)
+            cos_progress = (elapsed - _warmup_frac) / (1.0 - _warmup_frac)
+            return lr_start * 0.5 * (1 + _math.cos(_math.pi * cos_progress))
+        print(f"  LR: warmup_cosine {lr_start:.6f} (10% warmup)")
     else:
         learning_rate = lr_start
         print(f"  LR: constant {lr_start:.6f}")
 
     run_dir = make_run_dir("rl_outputs")
 
-    # Eval callback — logs task metrics to TensorBoard every 50k steps
+    # Eval callback — logs all thesis metrics to TensorBoard every 50k steps
+    GREEDY_WAIT_BASELINE = 8.3  # for gap display (approximate)
+
     class FullEvalCallback(BaseCallback):
         def __init__(self, sim_cfg, eval_freq):
             super().__init__(verbose=0)
@@ -162,31 +193,55 @@ def main():
                 _, metrics = evaluate_policy(
                     self.model, self.sim_cfg, n_episodes=5
                 )
-                sr  = metrics["service_rate"] or 0
-                rej = metrics["rejected"] or 0
-                mw  = metrics["mean_wait"] or 0
+                sr  = metrics.get("service_rate") or 0
+                rej = metrics.get("rejected") or 0
+                mw  = metrics.get("mean_wait") or 0
                 n   = self.sim_cfg.n_requests
                 mw_all = ((sr * n * mw) + (rej * MAX_WAIT)) / max(sr * n + rej, 1)
                 rr     = rej / max(n, 1)
 
+                # --- Core eval metrics ---
                 self.logger.record("eval/service_rate",   sr)
                 self.logger.record("eval/mean_wait",      mw)
                 self.logger.record("eval/mean_wait_all",  mw_all)
-                self.logger.record("eval/p95_wait",       metrics["p95_wait"]    or 0)
-                self.logger.record("eval/mean_ride",      metrics["mean_ride"]   or 0)
-                self.logger.record("eval/p95_ride",       metrics["p95_ride"]    or 0)
-                self.logger.record("eval/mean_detour",    metrics["mean_detour"] or 0)
+                self.logger.record("eval/p95_wait",       metrics.get("p95_wait")    or 0)
+                self.logger.record("eval/mean_ride",      metrics.get("mean_ride")   or 0)
+                self.logger.record("eval/p95_ride",       metrics.get("p95_ride")    or 0)
+                self.logger.record("eval/mean_detour",    metrics.get("mean_detour") or 0)
                 self.logger.record("eval/rejected",       rej)
                 self.logger.record("eval/rejection_rate", rr)
+                
+                # >> ADDED eval/reward logic to match rl_tune_v3.py
+                self.logger.record("eval/reward",         metrics.get("reward")      or 0)
+
+                # --- Peak vs off-peak (anticipatory behaviour evidence) ---
+                self.logger.record("eval/peak_mean_wait",
+                                   metrics.get("peak_mean_wait") or 0)
+                self.logger.record("eval/peak_rejection_rate",
+                                   metrics.get("peak_rejection_rate") or 0)
+                self.logger.record("eval/offpeak_mean_wait",
+                                   metrics.get("offpeak_mean_wait") or 0)
+                self.logger.record("eval/offpeak_rejection_rate",
+                                   metrics.get("offpeak_rejection_rate") or 0)
+
+                # --- Fleet utilisation balance ---
+                self.logger.record("eval/load_std",
+                                   metrics.get("load_std") or 0)
+
+                # --- Gap vs greedy baseline ---
+                self.logger.record("eval/greedy_gap_wait",
+                                   mw - GREEDY_WAIT_BASELINE)
+
                 self.logger.dump(self.num_timesteps)
 
                 print(f"\n  [Eval @ {self.num_timesteps:,}]"
                       f"  svc={sr:.1%}"
                       f"  wait={mw:.2f}"
                       f"  wait_all={mw_all:.2f}"
-                      f"  ride={metrics['mean_ride'] or 0:.2f}"
+                      f"  ride={metrics.get('mean_ride') or 0:.2f}"
                       f"  rej={rej:.0f}"
-                      f"  | greedy: wait=8.3 svc=88.5%")
+                      f"  load_std={metrics.get('load_std') or 0:.2f}"
+                      f"  pk_wait={metrics.get('peak_mean_wait') or 0:.1f}")
             return True
 
     model = MaskablePPO(
@@ -220,9 +275,9 @@ def main():
     results, final = evaluate_policy(model, sim_cfg, n_episodes=10)
 
     # Compute mean_wait_all for final report
-    sr    = final["service_rate"] or 0
-    rej   = final["rejected"] or 0
-    mw    = final["mean_wait"] or 0
+    sr    = final.get("service_rate") or 0
+    rej   = final.get("rejected") or 0
+    mw    = final.get("mean_wait") or 0
     n_req = sim_cfg.n_requests
     mw_all = ((sr * n_req * mw) + (rej * MAX_WAIT)) / max(sr * n_req + rej, 1)
 
@@ -234,10 +289,10 @@ def main():
     print(f"  {'service_rate':<20} {sr:>9.1%} {'88.3%':>10} {'88.5%':>10}")
     print(f"  {'mean_wait_all':<20} {mw_all:>9.2f}")
     print(f"  {'mean_wait_served':<20} {mw:>9.2f} {'10.3':>10} {'8.3':>10}")
-    print(f"  {'mean_ride':<20} {final['mean_ride'] or 0:>9.2f} {'8.6':>10} {'8.1':>10}")
-    print(f"  {'p95_wait':<20} {final['p95_wait'] or 0:>9.2f}")
-    print(f"  {'p95_ride':<20} {final['p95_ride'] or 0:>9.2f}")
-    print(f"  {'mean_detour':<20} {final['mean_detour'] or 0:>9.2f}x")
+    print(f"  {'mean_ride':<20} {final.get('mean_ride') or 0:>9.2f} {'8.6':>10} {'8.1':>10}")
+    print(f"  {'p95_wait':<20} {final.get('p95_wait') or 0:>9.2f}")
+    print(f"  {'p95_ride':<20} {final.get('p95_ride') or 0:>9.2f}")
+    print(f"  {'mean_detour':<20} {final.get('mean_detour') or 0:>9.2f}x")
     print(f"  {'rejected':<20} {rej:>9.0f} {'n/a':>10} {'~40':>10}")
     print(f"\n  Training time: {train_time:.0f}s ({train_time/60:.1f} min)")
 
@@ -251,10 +306,10 @@ def main():
             "service_rate":      round(sr, 4),
             "mean_wait_all":     round(mw_all, 2),
             "mean_wait_served":  round(mw, 2),
-            "mean_ride":         round(final["mean_ride"] or 0, 2),
-            "p95_wait":          round(final["p95_wait"]  or 0, 2),
-            "p95_ride":          round(final["p95_ride"]  or 0, 2),
-            "mean_detour":       round(final["mean_detour"] or 0, 3),
+            "mean_ride":         round(final.get("mean_ride") or 0, 2),
+            "p95_wait":          round(final.get("p95_wait")  or 0, 2),
+            "p95_ride":          round(final.get("p95_ride")  or 0, 2),
+            "mean_detour":       round(final.get("mean_detour") or 0, 3),
             "rejected":          round(rej, 1),
         },
         "training_time_seconds": round(train_time, 1),
