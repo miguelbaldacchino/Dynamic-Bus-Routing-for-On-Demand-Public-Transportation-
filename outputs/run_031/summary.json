@@ -1,0 +1,47 @@
+{
+  "config": {
+    "seed": 42,
+    "service_end": 1020.0,
+    "horizon": 1140.0,
+    "n_requests": 400,
+    "inter_arrival": 3.0,
+    "demand_profile": "malta",
+    "stochastic_arrivals": true,
+    "n_nodes": 71,
+    "fleet_size": 6,
+    "vehicle_capacity": 16,
+    "depot_node": 0,
+    "ride_factor": 2.5,
+    "max_wait": 30.0,
+    "ride_time_margin": 3.0,
+    "travel_noise": 0.15,
+    "weights": [
+      1.0,
+      2.0,
+      2.5
+    ],
+    "policy": "greedy"
+  },
+  "metrics": {
+    "total_requests": 342,
+    "served": 306,
+    "rejected": 36,
+    "in_progress": 0,
+    "service_rate": 0.8947368421052632,
+    "mean_wait": 11.874858724076196,
+    "p95_wait": 28.365719414577683,
+    "mean_ride": 8.344575252767708,
+    "p95_ride": 17.288509902950878,
+    "mean_detour_ratio": 1.2518121221537895,
+    "p95_detour_ratio": 1.9215042903631525,
+    "total_distance": 3216.5818871088213,
+    "improvements": 0,
+    "mean_latency_ms": 0.2645588757698996,
+    "p95_latency_ms": 0.5824804306030273,
+    "violations_total": 6,
+    "violations_wait": 6,
+    "violations_ride": 0,
+    "mean_wait_excess": 0.8571163934766256,
+    "mean_ride_excess": null
+  }
+}

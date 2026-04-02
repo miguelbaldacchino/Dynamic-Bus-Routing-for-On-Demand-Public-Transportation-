@@ -1,23 +1,57 @@
 # main.py
-# SimPy simulation — Malta On Demand (05:30 to 22:30).
+# Unified SimPy simulation — Malta On Demand (05:30 to 22:30).
 # All times in MINUTES.  Simulation t=0 = 05:30.
+#
+# Single entry point for ALL policies. No more separate main files.
+#
+# Usage:
+#   python main.py                                                  # greedy+sa (default)
+#   python main.py --policy greedy                                  # greedy only (no SA)
+#   python main.py --policy rl --model rl_outputs/run_008/model.zip # tuned RL
+#   python main.py --policy rl --model rl_outputs/run_006/model.zip # base RL
+#   python main.py --policy rl+sa --model rl_outputs/run_008/model.zip  # hybrid
+#   python main.py --no-viz                                         # skip map
+#   python main.py --verbose                                        # per-stop prints
 
 import simpy
 import random
 import os
+import argparse
 
 from models import Request, Vehicle, RequestStatus
 from malta_travel import DEFAULT_COORDS, make_travel_fn
-from dispatcher import greedy_insert, sa_improve, print_plans, build_sa_policy
+from dispatcher import build_policy, dispatch_request, print_plans
 from config import SimulationConfig, arrival_rate
 from metrics import MetricsCollector
-from visualize import EventLogger, generate_map
+
+
+# ===================================================================
+# Known model registry — quick labels for thesis runs
+# ===================================================================
+MODEL_REGISTRY = {
+    "rl_tuned":   "rl_outputs/run_008/model.zip",
+    "rl_base":    "rl_outputs/run_006/model.zip",
+}
 
 
 def sim_time_to_clock(t: float) -> str:
     """Convert simulation time (minutes from 05:30) to HH:MM clock string."""
     total = int(5 * 60 + 30 + t)
     return f"{total // 60:02d}:{total % 60:02d}"
+
+
+def _policy_label(policy: str, model_path: str = None) -> str:
+    """Human-readable label for the summary JSON and banner."""
+    if model_path:
+        # Check if it matches a known model
+        for name, path in MODEL_REGISTRY.items():
+            if model_path.rstrip("/\\") == path.rstrip("/\\"):
+                return f"{policy} ({name})"
+        # Fall back to directory name
+        parts = model_path.replace("\\", "/").split("/")
+        run_part = next((p for p in parts if p.startswith("run_")), model_path)
+        return f"{policy} ({run_part})"
+    return policy
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +66,7 @@ def vehicle_process(
     requests:     dict,
     metrics:      MetricsCollector,
     cfg:          SimulationConfig,
-    logger:       EventLogger,
+    logger,
     verbose:      bool = False,
 ) -> None:
 
@@ -40,7 +74,6 @@ def vehicle_process(
         print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} ready at depot")
 
     while True:
-        # --- Wait for work (event-driven, no polling) ---
         if not vehicle.plan:
             vehicle.wake_event = env.event()
             yield vehicle.wake_event
@@ -48,23 +81,21 @@ def vehicle_process(
 
         stop = vehicle.plan.pop(0)
 
-        # --- Mark in-transit BEFORE yielding ---
         planned_travel = travel_fn(vehicle.location, stop.node, env.now)
         vehicle.in_transit_stop        = stop
         vehicle.in_transit_depart_time = env.now
         vehicle.in_transit_eta         = env.now + planned_travel
 
-        # Log departure
-        logger.log_depart(
-            env.now, sim_time_to_clock(env.now), vehicle.id,
-            vehicle.location, stop.node, stop.req_id, stop.kind,
-        )
+        if logger:
+            logger.log_depart(
+                env.now, sim_time_to_clock(env.now), vehicle.id,
+                vehicle.location, stop.node, stop.req_id, stop.kind,
+            )
 
         if verbose:
             print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                   f"-> {stop.kind} {stop.req_id} node {stop.node}")
 
-        # --- Actual travel: apply stochastic noise ---
         if cfg.travel_noise > 0 and planned_travel > 0:
             noise_factor = random.lognormvariate(0.0, cfg.travel_noise)
             actual_travel = planned_travel * noise_factor
@@ -74,25 +105,21 @@ def vehicle_process(
         metrics.log_distance(actual_travel)
         yield env.timeout(actual_travel)
 
-        # --- Arrived: update location, clear in-transit ---
         vehicle.location               = stop.node
         vehicle.in_transit_stop        = None
         vehicle.in_transit_depart_time = None
         vehicle.in_transit_eta         = None
 
-        # Log arrival
-        logger.log_arrive(
-            env.now, sim_time_to_clock(env.now), vehicle.id,
-            stop.node, stop.req_id, stop.kind,
-        )
+        if logger:
+            logger.log_arrive(
+                env.now, sim_time_to_clock(env.now), vehicle.id,
+                stop.node, stop.req_id, stop.kind,
+            )
 
-        # Wait at pickup if vehicle arrives before earliest time
         if stop.kind == "PU" and stop.earliest and env.now < stop.earliest:
             yield env.timeout(stop.earliest - env.now)
 
-        # ----------------------------------------------------------------
-        # Pickup
-        # ----------------------------------------------------------------
+        # --- Pickup ---
         if stop.kind == "PU":
             actual_wait = env.now - stop.request_time
 
@@ -111,20 +138,18 @@ def vehicle_process(
                 req.pickup_time = env.now
                 req.status      = RequestStatus.ONBOARD
 
-            # Log pickup
-            logger.log_pickup(
-                env.now, sim_time_to_clock(env.now), vehicle.id,
-                stop.node, stop.req_id, actual_wait,
-            )
+            if logger:
+                logger.log_pickup(
+                    env.now, sim_time_to_clock(env.now), vehicle.id,
+                    stop.node, stop.req_id, actual_wait,
+                )
 
             if verbose:
                 print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                       f"picked up {stop.req_id}  "
                       f"(waited {actual_wait:.1f} min)")
 
-        # ----------------------------------------------------------------
-        # Dropoff
-        # ----------------------------------------------------------------
+        # --- Dropoff ---
         elif stop.kind == "DO":
             vehicle.onboard.discard(stop.req_id)
             vehicle.onboard_pickup_times.pop(stop.req_id, None)
@@ -146,17 +171,16 @@ def vehicle_process(
                             value=actual_ride, limit=max_ride, t=env.now,
                         )
 
-            # Log dropoff
-            logger.log_dropoff(
-                env.now, sim_time_to_clock(env.now), vehicle.id,
-                stop.node, stop.req_id, ride_time,
-            )
+            if logger:
+                logger.log_dropoff(
+                    env.now, sim_time_to_clock(env.now), vehicle.id,
+                    stop.node, stop.req_id, ride_time,
+                )
 
             if verbose:
                 print(f"[{sim_time_to_clock(env.now)}] {vehicle.id} "
                       f"dropped off {stop.req_id}")
 
-        # Service / dwell time at stop
         yield env.timeout(stop.service)
 
 
@@ -174,7 +198,7 @@ def request_generator(
     travel_fn,
     requests:     dict,
     metrics:      MetricsCollector,
-    logger:       EventLogger,
+    logger,
     verbose:      bool = False,
 ) -> None:
 
@@ -209,19 +233,20 @@ def request_generator(
         clock = sim_time_to_clock(env.now)
         print(f"[{clock}] Request {req.id:>5}  {pu:>2} -> {do:<2}", end="  ")
 
-        # Log request arrival
-        logger.log_request(env.now, clock, req.id, pu, do)
+        if logger:
+            logger.log_request(env.now, clock, req.id, pu, do)
 
-        inserted = greedy_insert(
-            req, vehicles, system_state, env.now, weights, metrics
+        # === SINGLE DISPATCH CALL — policy handled internally ===
+        inserted = dispatch_request(
+            req, vehicles, system_state, env.now, weights, metrics,
         )
 
         if inserted:
             req.status          = RequestStatus.ASSIGNED
             req.assignment_time = env.now
-            sa_improve(vehicles, system_state, env.now, weights, metrics)
         else:
-            logger.log_reject(env.now, clock, req.id, pu, do)
+            if logger:
+                logger.log_reject(env.now, clock, req.id, pu, do)
 
         if verbose:
             print_plans(vehicles)
@@ -231,7 +256,13 @@ def request_generator(
 # Main
 # ---------------------------------------------------------------------------
 
-def main(cfg: SimulationConfig = None, verbose: bool = False, visualize: bool = True) -> MetricsCollector:
+def main(
+    cfg:        SimulationConfig = None,
+    model_path: str  = None,
+    verbose:    bool = False,
+    visualize:  bool = True,
+) -> MetricsCollector:
+
     if cfg is None:
         cfg = SimulationConfig()
 
@@ -243,9 +274,17 @@ def main(cfg: SimulationConfig = None, verbose: bool = False, visualize: bool = 
     direct_times: dict = {}
     requests:     dict = {}
     metrics       = MetricsCollector()
-    logger        = EventLogger()
 
-    build_sa_policy(cfg)
+    # Optional visualisation logger (don't crash if visualize.py is missing)
+    logger = None
+    try:
+        from visualize import EventLogger
+        logger = EventLogger()
+    except ImportError:
+        pass
+
+    # === Build the dispatch policy ===
+    build_policy(cfg, model_path=model_path)
 
     vehicles = {
         f"Bus-{k+1}": Vehicle(
@@ -265,18 +304,31 @@ def main(cfg: SimulationConfig = None, verbose: bool = False, visualize: bool = 
         "ride_time_margin": cfg.ride_time_margin,
     }
 
-    print(f"\nService   : {sim_time_to_clock(0)} - {sim_time_to_clock(cfg.service_end)}"
-          f"  (sim until {sim_time_to_clock(cfg.horizon)} for completion)")
-    print(f"Fleet     : {cfg.fleet_size} buses x capacity {cfg.vehicle_capacity}")
-    print(f"Demand    : {cfg.n_requests} requests, "
+    # === Banner — adapts to active policy ===
+    label = _policy_label(cfg.policy, model_path)
+    print(f"\n{'=' * 60}")
+    print(f"SIMULATION — {label}")
+    print(f"{'=' * 60}")
+    print(f"  Service   : {sim_time_to_clock(0)} - {sim_time_to_clock(cfg.service_end)}"
+          f"  (sim until {sim_time_to_clock(cfg.horizon)})")
+    print(f"  Fleet     : {cfg.fleet_size} buses x capacity {cfg.vehicle_capacity}")
+    print(f"  Demand    : {cfg.n_requests} requests, "
           f"profile={cfg.demand_profile}, "
           f"stochastic={cfg.stochastic_arrivals}")
-    print(f"Constraints: max_wait={cfg.max_wait} min, "
+    print(f"  Constraints: max_wait={cfg.max_wait} min, "
           f"ride_factor={cfg.ride_factor}")
-    print(f"SA params : T0={cfg.sa_initial_temp}, cool={cfg.sa_cooling_rate}, "
-          f"iters={cfg.sa_iterations}/vehicle, "
-          f"time={cfg.sa_time_limit}s/vehicle")
-    print("-" * 60)
+    print(f"  Policy    : {label}")
+
+    if "sa" in cfg.policy.lower():
+        print(f"  SA params : T0={cfg.sa_initial_temp}, "
+              f"cool={cfg.sa_cooling_rate}, "
+              f"iters={cfg.sa_iterations}/vehicle, "
+              f"time={cfg.sa_time_limit}s/vehicle")
+
+    if model_path:
+        print(f"  Model     : {model_path}")
+
+    print(f"{'=' * 60}\n")
 
     for vehicle in vehicles.values():
         env.process(vehicle_process(
@@ -295,26 +347,25 @@ def main(cfg: SimulationConfig = None, verbose: bool = False, visualize: bool = 
 
     # --- Generate outputs ---
     run_dir = _make_run_dir(cfg)
-    _save_summary(metrics, cfg, run_dir)
+    _save_summary(metrics, cfg, label, run_dir)
 
-    if visualize:
-        print("\nGenerating visualization...")
-        events_path = os.path.join(run_dir, "events.json")
-        map_path    = os.path.join(run_dir, "map.html")
-        logger.to_json(events_path)
-        generate_map(logger, map_path)
+    if visualize and logger:
+        try:
+            from visualize import generate_map
+            print("\nGenerating visualization...")
+            events_path = os.path.join(run_dir, "events.json")
+            map_path    = os.path.join(run_dir, "map.html")
+            logger.to_json(events_path)
+            generate_map(logger, map_path)
+        except ImportError:
+            print("  (visualize module not found — skipping map)")
 
     print(f"\nOutputs saved to: {run_dir}")
     return metrics
 
 
 def _make_run_dir(cfg: SimulationConfig) -> str:
-    """
-    Create outputs/run_NNN/ directory.
-    Auto-increments: run_001, run_002, etc.
-    """
     os.makedirs("outputs", exist_ok=True)
-
     existing = [
         d for d in os.listdir("outputs")
         if os.path.isdir(os.path.join("outputs", d)) and d.startswith("run_")
@@ -329,43 +380,48 @@ def _make_run_dir(cfg: SimulationConfig) -> str:
         next_num = max(nums) + 1 if nums else 1
     else:
         next_num = 1
-
     run_dir = os.path.join("outputs", f"run_{next_num:03d}")
     os.makedirs(run_dir)
     return run_dir
 
 
-def _save_summary(metrics: MetricsCollector, cfg: SimulationConfig, run_dir: str):
-    """Save simulation config and metrics summary to the run directory."""
+def _save_summary(
+    metrics: MetricsCollector,
+    cfg: SimulationConfig,
+    policy_label: str,
+    run_dir: str,
+):
     import json as _json
-    from dataclasses import asdict
 
     summary = {
         "config": {
-            "seed":               cfg.seed,
-            "service_end":        cfg.service_end,
-            "horizon":            cfg.horizon,
-            "n_requests":         cfg.n_requests,
-            "inter_arrival":      cfg.inter_arrival,
-            "demand_profile":     cfg.demand_profile,
+            "seed":                cfg.seed,
+            "service_end":         cfg.service_end,
+            "horizon":             cfg.horizon,
+            "n_requests":          cfg.n_requests,
+            "inter_arrival":       cfg.inter_arrival,
+            "demand_profile":      cfg.demand_profile,
             "stochastic_arrivals": cfg.stochastic_arrivals,
-            "n_nodes":            cfg.n_nodes,
-            "fleet_size":         cfg.fleet_size,
-            "vehicle_capacity":   cfg.vehicle_capacity,
-            "depot_node":         cfg.depot_node,
-            "ride_factor":        cfg.ride_factor,
-            "max_wait":           cfg.max_wait,
-            "ride_time_margin":   cfg.ride_time_margin,
-            "travel_noise":       cfg.travel_noise,
-            "weights":            list(cfg.weights),
-            "policy":             cfg.policy,
-            "sa_initial_temp":    cfg.sa_initial_temp,
-            "sa_cooling_rate":    cfg.sa_cooling_rate,
-            "sa_iterations":      cfg.sa_iterations,
-            "sa_time_limit":      cfg.sa_time_limit,
+            "n_nodes":             cfg.n_nodes,
+            "fleet_size":          cfg.fleet_size,
+            "vehicle_capacity":    cfg.vehicle_capacity,
+            "depot_node":          cfg.depot_node,
+            "ride_factor":         cfg.ride_factor,
+            "max_wait":            cfg.max_wait,
+            "ride_time_margin":    cfg.ride_time_margin,
+            "travel_noise":        cfg.travel_noise,
+            "weights":             list(cfg.weights),
+            "policy":              policy_label,
         },
         "metrics": metrics.summary(),
     }
+
+    # Only include SA params if SA is active
+    if "sa" in cfg.policy.lower():
+        summary["config"]["sa_initial_temp"] = cfg.sa_initial_temp
+        summary["config"]["sa_cooling_rate"] = cfg.sa_cooling_rate
+        summary["config"]["sa_iterations"]   = cfg.sa_iterations
+        summary["config"]["sa_time_limit"]   = cfg.sa_time_limit
 
     path = os.path.join(run_dir, "summary.json")
     with open(path, "w", encoding="utf-8") as f:
@@ -373,7 +429,65 @@ def _save_summary(metrics: MetricsCollector, cfg: SimulationConfig, run_dir: str
     print(f"  Summary saved to {path}")
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Malta On Demand — Dynamic DARP Simulation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+Examples:
+  python main.py                                                   # greedy+sa
+  python main.py --policy greedy                                   # greedy only
+  python main.py --policy rl --model rl_outputs/run_008/model.zip  # tuned RL
+  python main.py --policy rl --model rl_outputs/run_006/model.zip  # base RL
+  python main.py --policy rl --model rl_tuned                      # shortcut
+  python main.py --policy rl+sa --model rl_tuned                   # hybrid
+""",
+    )
+    parser.add_argument(
+        "--policy", default="greedy+sa",
+        choices=["greedy", "greedy+sa", "rl", "rl+sa"],
+        help="Dispatch policy (default: greedy+sa)",
+    )
+    parser.add_argument(
+        "--model", default=None,
+        help="Path to RL model.zip, or shortcut name: 'rl_tuned', 'rl_base'",
+    )
+    parser.add_argument("--seed",     type=int, default=42)
+    parser.add_argument("--requests", type=int, default=400)
+    parser.add_argument("--fleet",    type=int, default=6)
+    parser.add_argument("--verbose",  action="store_true")
+    parser.add_argument("--no-viz",   action="store_true")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    import sys
-    viz = "--no-viz" not in sys.argv
-    main(visualize=viz)
+    args = parse_args()
+
+    # Resolve model shortcut names
+    model_path = args.model
+    if model_path and model_path in MODEL_REGISTRY:
+        model_path = MODEL_REGISTRY[model_path]
+
+    # Validate: RL policies need a model
+    if "rl" in args.policy and not model_path:
+        print(f"ERROR: --policy {args.policy} requires --model <path>")
+        print(f"  Available shortcuts: {list(MODEL_REGISTRY.keys())}")
+        exit(1)
+
+    cfg = SimulationConfig(
+        seed       = args.seed,
+        n_requests = args.requests,
+        fleet_size = args.fleet,
+        policy     = args.policy,
+    )
+
+    main(
+        cfg        = cfg,
+        model_path = model_path,
+        verbose    = args.verbose,
+        visualize  = not args.no_viz,
+    )
