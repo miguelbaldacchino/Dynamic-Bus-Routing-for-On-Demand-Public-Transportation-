@@ -325,6 +325,12 @@ def main(
               f"iters={cfg.sa_iterations}/vehicle, "
               f"time={cfg.sa_time_limit}s/vehicle")
 
+    if "ga" in cfg.policy.lower():
+        print(f"  GA params : pop={cfg.ga_population}, "
+              f"gen={cfg.ga_generations}, "
+              f"cx={cfg.ga_crossover}, mut={cfg.ga_mutation}, "
+              f"time={cfg.ga_time_limit}s/vehicle")
+
     if model_path:
         print(f"  Model     : {model_path}")
 
@@ -423,6 +429,16 @@ def _save_summary(
         summary["config"]["sa_iterations"]   = cfg.sa_iterations
         summary["config"]["sa_time_limit"]   = cfg.sa_time_limit
 
+    # Only include GA params if GA is active
+    if "ga" in cfg.policy.lower():
+        summary["config"]["ga_population"]   = cfg.ga_population
+        summary["config"]["ga_generations"]  = cfg.ga_generations
+        summary["config"]["ga_crossover"]    = cfg.ga_crossover
+        summary["config"]["ga_mutation"]     = cfg.ga_mutation
+        summary["config"]["ga_tournament"]   = cfg.ga_tournament
+        summary["config"]["ga_elite"]        = cfg.ga_elite
+        summary["config"]["ga_time_limit"]   = cfg.ga_time_limit
+
     path = os.path.join(run_dir, "summary.json")
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(summary, f, indent=2, default=str)
@@ -441,15 +457,17 @@ def parse_args():
 Examples:
   python main.py                                                   # greedy+sa
   python main.py --policy greedy                                   # greedy only
+  python main.py --policy greedy+ga                                # greedy+ga
   python main.py --policy rl --model rl_outputs/run_008/model.zip  # tuned RL
   python main.py --policy rl --model rl_outputs/run_006/model.zip  # base RL
   python main.py --policy rl --model rl_tuned                      # shortcut
-  python main.py --policy rl+sa --model rl_tuned                   # hybrid
+  python main.py --policy rl+sa --model rl_tuned                   # hybrid SA
+  python main.py --policy rl+ga --model rl_tuned                   # hybrid GA
 """,
     )
     parser.add_argument(
         "--policy", default="greedy+sa",
-        choices=["greedy", "greedy+sa", "rl", "rl+sa"],
+        choices=["greedy", "greedy+sa", "greedy+ga", "rl", "rl+sa", "rl+ga"],
         help="Dispatch policy (default: greedy+sa)",
     )
     parser.add_argument(

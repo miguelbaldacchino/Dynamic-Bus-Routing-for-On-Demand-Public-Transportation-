@@ -175,7 +175,7 @@ class MetricsCollector:
         print(f"  Distance : {s['total_distance']:.2f} (total km proxy)")
         print(f"  Latency  : mean={_fmt(s['mean_latency_ms'])} ms  "
               f"p95={_fmt(s['p95_latency_ms'])} ms")
-        print(f"  SA improvements: {s['improvements']} successful route updates")
+        print(f"  Route improvements: {s['improvements']} successful route updates")
         print(f"  Violations: {s['violations_total']} total  "
               f"({s['violations_wait']} wait, {s['violations_ride']} ride)")
         if s['violations_wait']:

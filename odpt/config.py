@@ -55,6 +55,15 @@ class SimulationConfig:
     sa_iterations:    int   = 5_000      # per vehicle
     sa_time_limit:    float = 0.3        # seconds per vehicle
 
+    # ---- GA hyperparameters ----
+    ga_population:    int   = 30         # individuals per generation
+    ga_generations:   int   = 200        # max generations per vehicle
+    ga_crossover:     float = 0.85       # OX crossover probability
+    ga_mutation:      float = 0.40       # mutation probability per offspring
+    ga_tournament:    int   = 3          # tournament selection size
+    ga_elite:         int   = 2          # elites carried forward unchanged
+    ga_time_limit:    float = 0.3        # seconds per vehicle (matches SA)
+
 
 def arrival_rate(t: float, cfg: SimulationConfig) -> float:
     """

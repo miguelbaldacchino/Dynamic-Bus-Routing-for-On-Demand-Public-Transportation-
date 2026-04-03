@@ -27,6 +27,7 @@ from models import Stop, Request, Vehicle
 from feasibility import check_feasibility, evaluate_plan
 from metrics import MetricsCollector
 from sa import SAPolicy
+from ga import GAPolicy
 
 
 # ===================================================================
@@ -35,6 +36,7 @@ from sa import SAPolicy
 
 _POLICY_NAME: str = "greedy+sa"
 _SA_POLICY: Optional[SAPolicy] = None
+_GA_POLICY: Optional[GAPolicy] = None
 _RL_MODEL = None          # MaskablePPO (loaded lazily when needed)
 _RL_CFG = None            # SimulationConfig for RL state encoding
 
@@ -52,7 +54,7 @@ def build_policy(cfg, model_path: str = None) -> None:
         Path to trained MaskablePPO model.zip.
         Required when cfg.policy contains "rl".
     """
-    global _POLICY_NAME, _SA_POLICY, _RL_MODEL, _RL_CFG
+    global _POLICY_NAME, _SA_POLICY, _GA_POLICY, _RL_MODEL, _RL_CFG
 
     _POLICY_NAME = cfg.policy.lower().strip()
     _RL_CFG = cfg
@@ -67,6 +69,20 @@ def build_policy(cfg, model_path: str = None) -> None:
         )
     else:
         _SA_POLICY = None
+
+    # --- GA setup (used by greedy+ga and rl+ga) ---
+    if "ga" in _POLICY_NAME:
+        _GA_POLICY = GAPolicy(
+            population_size     = cfg.ga_population,
+            generations         = cfg.ga_generations,
+            crossover_rate      = cfg.ga_crossover,
+            mutation_rate       = cfg.ga_mutation,
+            tournament_size     = cfg.ga_tournament,
+            elite_count         = cfg.ga_elite,
+            decision_time_limit = cfg.ga_time_limit,
+        )
+    else:
+        _GA_POLICY = None
 
     # --- RL model setup ---
     if "rl" in _POLICY_NAME:
@@ -112,7 +128,13 @@ def dispatch_request(
 
     Returns True if inserted, False if rejected.
     This is the ONLY function main.py needs to call.
+
+    Latency logged here covers the FULL decision epoch:
+    insertion (greedy or RL) + improvement pass (SA or GA).
+    This is the correct definition for thesis latency comparisons.
     """
+    t0 = _time.time()
+
     if "rl" in _POLICY_NAME:
         inserted = _rl_insert(
             request, vehicles, system_state, current_time, weights, metrics,
@@ -125,6 +147,14 @@ def dispatch_request(
     # SA improvement pass (for greedy+sa and rl+sa)
     if inserted and _SA_POLICY is not None:
         _sa_improve(vehicles, system_state, current_time, weights, metrics)
+
+    # GA improvement pass (for greedy+ga and rl+ga)
+    if inserted and _GA_POLICY is not None:
+        _ga_improve(vehicles, system_state, current_time, weights, metrics)
+
+    # Log total decision latency (insertion + any improvement pass)
+    if metrics:
+        metrics.log_decision_latency(_time.time() - t0)
 
     return inserted
 
@@ -159,8 +189,6 @@ def _greedy_insert(
     Insert *request* into the best feasible position across all vehicles.
     Returns True if inserted, False if rejected.
     """
-    t0 = _time.time()
-
     best_cost   = float("inf")
     best_choice = None
     max_wait    = system_state.get("max_wait", float("inf"))
@@ -174,10 +202,6 @@ def _greedy_insert(
             if cost < best_cost:
                 best_cost   = cost
                 best_choice = (vid, candidate, n_committed)
-
-    elapsed = _time.time() - t0
-    if metrics:
-        metrics.log_decision_latency(elapsed)
 
     if best_choice:
         vid, full_candidate, n_committed = best_choice
@@ -215,7 +239,6 @@ def _rl_insert(
     """
     import numpy as np
 
-    t0 = _time.time()
     model = _RL_MODEL
     if model is None:
         raise RuntimeError("RL model not loaded. Call build_policy() first.")
@@ -240,9 +263,7 @@ def _rl_insert(
 
     # If no vehicle can take this request, reject
     if mask.sum() <= 1:
-        elapsed = _time.time() - t0
         if metrics:
-            metrics.log_decision_latency(elapsed)
             metrics.mark_rejected(request.id)
         print(f"  -> RL rejected {request.id} (no feasible vehicle)")
         return False
@@ -254,10 +275,6 @@ def _rl_insert(
     )
     action, _ = model.predict(obs, deterministic=True, action_masks=mask)
     action = int(action)
-
-    elapsed = _time.time() - t0
-    if metrics:
-        metrics.log_decision_latency(elapsed)
 
     if action == 0 or action > n_vehicles:
         if metrics:
@@ -393,6 +410,77 @@ def _sa_improve(
         return
 
     # Verify combined improvement
+    total_before = 0.0
+    total_after  = 0.0
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        v_state = vehicle.to_state_dict(current_time)
+        total_before += evaluate_plan(
+            v_state["plan_snapshot"], v_state, system_state, weights,
+        )
+        total_after += evaluate_plan(
+            new_plan, v_state, system_state, weights,
+        )
+
+    if total_after >= total_before:
+        return
+
+    # Apply all changes atomically
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        n_committed = 1 if vehicle.in_transit_stop is not None else 0
+        vehicle.plan = new_plan[n_committed:]
+
+        if (vehicle.wake_event is not None
+                and not vehicle.wake_event.triggered
+                and vehicle.plan):
+            vehicle.wake_event.succeed()
+
+    if metrics:
+        metrics.log_improvement()
+
+
+# ===================================================================
+# GA improvement pass (internal)
+# ===================================================================
+
+def _ga_improve(
+    vehicles:     dict[str, Vehicle],
+    system_state: dict,
+    current_time: float,
+    weights:      tuple[float, float, float],
+    metrics:      Optional[MetricsCollector] = None,
+) -> None:
+    """
+    Run one GA improvement pass over all vehicle plans.
+    Structurally identical to _sa_improve — only the policy object differs.
+    Plans are updated only when GA finds a strictly better combined solution.
+    """
+    if _GA_POLICY is None:
+        return
+
+    ga_system_state = {
+        **system_state,
+        "vehicles": {},
+    }
+
+    for vid, v in vehicles.items():
+        vs = v.to_state_dict(current_time)
+        n_committed = 1 if v.in_transit_stop is not None else 0
+        ga_system_state["vehicles"][vid] = {
+            **vs,
+            "plan":        deepcopy(vs["plan_snapshot"]),
+            "n_committed": n_committed,
+        }
+
+    changes = _GA_POLICY.propose(
+        ga_system_state, check_feasibility, weights,
+    )
+
+    if not changes:
+        return
+
+    # Verify combined improvement across all touched vehicles
     total_before = 0.0
     total_after  = 0.0
     for vid, new_plan in changes.items():
