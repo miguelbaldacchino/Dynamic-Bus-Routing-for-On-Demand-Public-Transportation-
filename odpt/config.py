@@ -55,6 +55,22 @@ class SimulationConfig:
     sa_iterations:    int   = 5_000      # per vehicle
     sa_time_limit:    float = 0.3        # seconds per vehicle
 
+    # ---- TS hyperparameters ----
+    ts_tabu_tenure:    int   = 7          # iterations a move stays tabu
+    ts_max_neighbours: int   = 50         # neighbour plans evaluated per iteration
+    ts_iterations:     int   = 200        # max TS iterations per vehicle
+    ts_patience:       int   = 30         # iterations without improvement before restart
+    ts_time_limit:     float = 0.3        # seconds per vehicle (matches SA/GA)
+
+    # ---- ALNS hyperparameters ----
+    alns_iterations:    int   = 150       # max ALNS iterations per vehicle
+    alns_q_min:         int   = 1         # min requests removed per destroy
+    alns_q_max:         int   = 6         # max requests removed per destroy
+    alns_reaction:      float = 0.1       # operator weight reaction factor
+    alns_temp_factor:   float = 0.5       # initial_temp = factor * initial_cost
+    alns_cooling:       float = 0.992     # temperature cooling per iteration
+    alns_time_limit:    float = 0.3       # seconds per vehicle (matches SA/GA/TS)
+
     # ---- GA hyperparameters ----
     ga_population:    int   = 30         # individuals per generation
     ga_generations:   int   = 200        # max generations per vehicle

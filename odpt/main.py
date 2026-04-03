@@ -331,6 +331,19 @@ def main(
               f"cx={cfg.ga_crossover}, mut={cfg.ga_mutation}, "
               f"time={cfg.ga_time_limit}s/vehicle")
 
+    if "ts" in cfg.policy.lower():
+        print(f"  TS params : tenure={cfg.ts_tabu_tenure}, "
+              f"neighbours={cfg.ts_max_neighbours}, "
+              f"iters={cfg.ts_iterations}/vehicle, "
+              f"patience={cfg.ts_patience}, "
+              f"time={cfg.ts_time_limit}s/vehicle")
+
+    if "alns" in cfg.policy.lower():
+        print(f"  ALNS params: iters={cfg.alns_iterations}, "
+              f"q=[{cfg.alns_q_min},{cfg.alns_q_max}], "
+              f"reaction={cfg.alns_reaction}, "
+              f"time={cfg.alns_time_limit}s/vehicle")
+
     if model_path:
         print(f"  Model     : {model_path}")
 
@@ -439,6 +452,24 @@ def _save_summary(
         summary["config"]["ga_elite"]        = cfg.ga_elite
         summary["config"]["ga_time_limit"]   = cfg.ga_time_limit
 
+    # Only include TS params if TS is active
+    if "ts" in cfg.policy.lower():
+        summary["config"]["ts_tabu_tenure"]    = cfg.ts_tabu_tenure
+        summary["config"]["ts_max_neighbours"] = cfg.ts_max_neighbours
+        summary["config"]["ts_iterations"]     = cfg.ts_iterations
+        summary["config"]["ts_patience"]       = cfg.ts_patience
+        summary["config"]["ts_time_limit"]     = cfg.ts_time_limit
+
+    # Only include ALNS params if ALNS is active
+    if "alns" in cfg.policy.lower():
+        summary["config"]["alns_iterations"]  = cfg.alns_iterations
+        summary["config"]["alns_q_min"]       = cfg.alns_q_min
+        summary["config"]["alns_q_max"]       = cfg.alns_q_max
+        summary["config"]["alns_reaction"]    = cfg.alns_reaction
+        summary["config"]["alns_temp_factor"] = cfg.alns_temp_factor
+        summary["config"]["alns_cooling"]     = cfg.alns_cooling
+        summary["config"]["alns_time_limit"]  = cfg.alns_time_limit
+
     path = os.path.join(run_dir, "summary.json")
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(summary, f, indent=2, default=str)
@@ -455,19 +486,24 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  python main.py                                                   # greedy+sa
+  python main.py                                                   # greedy+sa (default)
   python main.py --policy greedy                                   # greedy only
+  python main.py --policy greedy+sa                                # greedy+sa
   python main.py --policy greedy+ga                                # greedy+ga
+  python main.py --policy greedy+ts                                # greedy+ts
+  python main.py --policy greedy+alns                              # greedy+alns
   python main.py --policy rl --model rl_outputs/run_008/model.zip  # tuned RL
-  python main.py --policy rl --model rl_outputs/run_006/model.zip  # base RL
   python main.py --policy rl --model rl_tuned                      # shortcut
-  python main.py --policy rl+sa --model rl_tuned                   # hybrid SA
-  python main.py --policy rl+ga --model rl_tuned                   # hybrid GA
+  python main.py --policy rl+sa  --model rl_tuned                  # RL + SA
+  python main.py --policy rl+ga  --model rl_tuned                  # RL + GA
+  python main.py --policy rl+ts  --model rl_tuned                  # RL + TS
+  python main.py --policy rl+alns --model rl_tuned                 # RL + ALNS
 """,
     )
     parser.add_argument(
         "--policy", default="greedy+sa",
-        choices=["greedy", "greedy+sa", "greedy+ga", "rl", "rl+sa", "rl+ga"],
+        choices=["greedy", "greedy+sa", "greedy+ga", "greedy+ts", "greedy+alns",
+                 "rl", "rl+sa", "rl+ga", "rl+ts", "rl+alns"],
         help="Dispatch policy (default: greedy+sa)",
     )
     parser.add_argument(

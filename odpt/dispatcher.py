@@ -28,6 +28,8 @@ from feasibility import check_feasibility, evaluate_plan
 from metrics import MetricsCollector
 from sa import SAPolicy
 from ga import GAPolicy
+from ts import TSPolicy
+from alns import ALNSPolicy
 
 
 # ===================================================================
@@ -35,10 +37,12 @@ from ga import GAPolicy
 # ===================================================================
 
 _POLICY_NAME: str = "greedy+sa"
-_SA_POLICY: Optional[SAPolicy] = None
-_GA_POLICY: Optional[GAPolicy] = None
-_RL_MODEL = None          # MaskablePPO (loaded lazily when needed)
-_RL_CFG = None            # SimulationConfig for RL state encoding
+_SA_POLICY:   Optional[SAPolicy]   = None
+_GA_POLICY:   Optional[GAPolicy]   = None
+_TS_POLICY:   Optional[TSPolicy]   = None
+_ALNS_POLICY: Optional[ALNSPolicy] = None
+_RL_MODEL = None
+_RL_CFG   = None
 
 
 def build_policy(cfg, model_path: str = None) -> None:
@@ -54,7 +58,7 @@ def build_policy(cfg, model_path: str = None) -> None:
         Path to trained MaskablePPO model.zip.
         Required when cfg.policy contains "rl".
     """
-    global _POLICY_NAME, _SA_POLICY, _GA_POLICY, _RL_MODEL, _RL_CFG
+    global _POLICY_NAME, _SA_POLICY, _GA_POLICY, _TS_POLICY, _ALNS_POLICY, _RL_MODEL, _RL_CFG
 
     _POLICY_NAME = cfg.policy.lower().strip()
     _RL_CFG = cfg
@@ -83,6 +87,32 @@ def build_policy(cfg, model_path: str = None) -> None:
         )
     else:
         _GA_POLICY = None
+
+    # --- TS setup (used by greedy+ts and rl+ts) ---
+    if "ts" in _POLICY_NAME:
+        _TS_POLICY = TSPolicy(
+            tabu_tenure         = cfg.ts_tabu_tenure,
+            max_neighbours      = cfg.ts_max_neighbours,
+            iterations          = cfg.ts_iterations,
+            patience            = cfg.ts_patience,
+            decision_time_limit = cfg.ts_time_limit,
+        )
+    else:
+        _TS_POLICY = None
+
+    # --- ALNS setup (used by greedy+alns and rl+alns) ---
+    if "alns" in _POLICY_NAME:
+        _ALNS_POLICY = ALNSPolicy(
+            iterations          = cfg.alns_iterations,
+            q_min               = cfg.alns_q_min,
+            q_max               = cfg.alns_q_max,
+            reaction_factor     = cfg.alns_reaction,
+            initial_temp_factor = cfg.alns_temp_factor,
+            cooling_rate        = cfg.alns_cooling,
+            decision_time_limit = cfg.alns_time_limit,
+        )
+    else:
+        _ALNS_POLICY = None
 
     # --- RL model setup ---
     if "rl" in _POLICY_NAME:
@@ -130,7 +160,7 @@ def dispatch_request(
     This is the ONLY function main.py needs to call.
 
     Latency logged here covers the FULL decision epoch:
-    insertion (greedy or RL) + improvement pass (SA or GA).
+    insertion (greedy or RL) + improvement pass (SA, GA, or TS).
     This is the correct definition for thesis latency comparisons.
     """
     t0 = _time.time()
@@ -151,6 +181,14 @@ def dispatch_request(
     # GA improvement pass (for greedy+ga and rl+ga)
     if inserted and _GA_POLICY is not None:
         _ga_improve(vehicles, system_state, current_time, weights, metrics)
+
+    # TS improvement pass (for greedy+ts and rl+ts)
+    if inserted and _TS_POLICY is not None:
+        _ts_improve(vehicles, system_state, current_time, weights, metrics)
+
+    # ALNS improvement pass (for greedy+alns and rl+alns)
+    if inserted and _ALNS_POLICY is not None:
+        _alns_improve(vehicles, system_state, current_time, weights, metrics)
 
     # Log total decision latency (insertion + any improvement pass)
     if metrics:
@@ -475,6 +513,148 @@ def _ga_improve(
 
     changes = _GA_POLICY.propose(
         ga_system_state, check_feasibility, weights,
+    )
+
+    if not changes:
+        return
+
+    # Verify combined improvement across all touched vehicles
+    total_before = 0.0
+    total_after  = 0.0
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        v_state = vehicle.to_state_dict(current_time)
+        total_before += evaluate_plan(
+            v_state["plan_snapshot"], v_state, system_state, weights,
+        )
+        total_after += evaluate_plan(
+            new_plan, v_state, system_state, weights,
+        )
+
+    if total_after >= total_before:
+        return
+
+    # Apply all changes atomically
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        n_committed = 1 if vehicle.in_transit_stop is not None else 0
+        vehicle.plan = new_plan[n_committed:]
+
+        if (vehicle.wake_event is not None
+                and not vehicle.wake_event.triggered
+                and vehicle.plan):
+            vehicle.wake_event.succeed()
+
+    if metrics:
+        metrics.log_improvement()
+
+
+# ===================================================================
+# TS improvement pass (internal)
+# ===================================================================
+
+def _ts_improve(
+    vehicles:     dict[str, Vehicle],
+    system_state: dict,
+    current_time: float,
+    weights:      tuple[float, float, float],
+    metrics:      Optional[MetricsCollector] = None,
+) -> None:
+    """
+    Run one TS improvement pass over all vehicle plans.
+    Structurally identical to _sa_improve and _ga_improve.
+    Plans are updated only when TS finds a strictly better combined solution.
+    """
+    if _TS_POLICY is None:
+        return
+
+    ts_system_state = {
+        **system_state,
+        "vehicles": {},
+    }
+
+    for vid, v in vehicles.items():
+        vs = v.to_state_dict(current_time)
+        n_committed = 1 if v.in_transit_stop is not None else 0
+        ts_system_state["vehicles"][vid] = {
+            **vs,
+            "plan":        deepcopy(vs["plan_snapshot"]),
+            "n_committed": n_committed,
+        }
+
+    changes = _TS_POLICY.propose(
+        ts_system_state, check_feasibility, weights,
+    )
+
+    if not changes:
+        return
+
+    # Verify combined improvement across all touched vehicles
+    total_before = 0.0
+    total_after  = 0.0
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        v_state = vehicle.to_state_dict(current_time)
+        total_before += evaluate_plan(
+            v_state["plan_snapshot"], v_state, system_state, weights,
+        )
+        total_after += evaluate_plan(
+            new_plan, v_state, system_state, weights,
+        )
+
+    if total_after >= total_before:
+        return
+
+    # Apply all changes atomically
+    for vid, new_plan in changes.items():
+        vehicle = vehicles[vid]
+        n_committed = 1 if vehicle.in_transit_stop is not None else 0
+        vehicle.plan = new_plan[n_committed:]
+
+        if (vehicle.wake_event is not None
+                and not vehicle.wake_event.triggered
+                and vehicle.plan):
+            vehicle.wake_event.succeed()
+
+    if metrics:
+        metrics.log_improvement()
+
+
+# ===================================================================
+# ALNS improvement pass (internal)
+# ===================================================================
+
+def _alns_improve(
+    vehicles:     dict[str, Vehicle],
+    system_state: dict,
+    current_time: float,
+    weights:      tuple[float, float, float],
+    metrics:      Optional[MetricsCollector] = None,
+) -> None:
+    """
+    Run one ALNS improvement pass over all vehicle plans.
+    Structurally identical to _sa_improve / _ga_improve / _ts_improve.
+    Plans are updated only when ALNS finds a strictly better combined solution.
+    """
+    if _ALNS_POLICY is None:
+        return
+
+    alns_system_state = {
+        **system_state,
+        "vehicles": {},
+    }
+
+    for vid, v in vehicles.items():
+        vs = v.to_state_dict(current_time)
+        n_committed = 1 if v.in_transit_stop is not None else 0
+        alns_system_state["vehicles"][vid] = {
+            **vs,
+            "plan":        deepcopy(vs["plan_snapshot"]),
+            "n_committed": n_committed,
+        }
+
+    changes = _ALNS_POLICY.propose(
+        alns_system_state, check_feasibility, weights,
     )
 
     if not changes:
