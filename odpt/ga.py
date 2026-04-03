@@ -79,6 +79,7 @@ class GAPolicy:
         tournament_size:     int   = 3,
         elite_count:         int   = 2,
         decision_time_limit: float = 0.3,
+        rng: Optional[random.Random] = None,
     ):
         self.population_size     = population_size
         self.generations         = generations
@@ -87,6 +88,8 @@ class GAPolicy:
         self.tournament_size     = tournament_size
         self.elite_count         = elite_count
         self.decision_time_limit = decision_time_limit
+        # Private RNG — isolated from the global state driving demand/noise.
+        self.rng = rng if rng is not None else random.Random()
 
     # ==================================================================
     # Public interface (matches SAPolicy.propose)
@@ -230,8 +233,8 @@ class GAPolicy:
             return list(parent_a)
 
         # Select crossover segment [cx1, cx2)
-        cx1 = random.randint(0, n - 2)
-        cx2 = random.randint(cx1 + 1, n)
+        cx1 = self.rng.randint(0, n - 2)
+        cx2 = self.rng.randint(cx1 + 1, n)
 
         # Child starts with the segment from parent_a
         child = [None] * n
@@ -268,13 +271,11 @@ class GAPolicy:
     # Mutation operators (same as SA for comparability)
     # ==================================================================
 
-    @staticmethod
-    def _mutate_pair_relocate(stops: list) -> Optional[list]:
+    def _mutate_pair_relocate(self, stops: list) -> Optional[list]:
         """
         Remove one request's PU+DO pair and re-insert at random
         positions i<j.  Same operator as SA._pair_relocate.
         """
-        # Find requests with both PU and DO
         pu_ids = {s.req_id for s in stops if s.kind == "PU"}
         do_ids = {s.req_id for s in stops if s.kind == "DO"}
         candidates = list(pu_ids & do_ids)
@@ -282,7 +283,7 @@ class GAPolicy:
         if not candidates:
             return None
 
-        req = random.choice(candidates)
+        req = self.rng.choice(candidates)
         pu_stop = do_stop = None
         for s in stops:
             if s.req_id == req and s.kind == "PU":
@@ -296,16 +297,15 @@ class GAPolicy:
         stripped = [s for s in stops if s.req_id != req]
         n = len(stripped)
 
-        i = random.randint(0, n)
-        j = random.randint(i + 1, n + 1)
+        i = self.rng.randint(0, n)
+        j = self.rng.randint(i + 1, n + 1)
 
         result = list(stripped)
         result.insert(i, pu_stop)
         result.insert(j, do_stop)
         return result
 
-    @staticmethod
-    def _mutate_pair_swap(stops: list) -> Optional[list]:
+    def _mutate_pair_swap(self, stops: list) -> Optional[list]:
         """
         Swap the positions of two requests' PU+DO pairs.
         Same operator as SA._pair_swap.
@@ -317,7 +317,7 @@ class GAPolicy:
         if len(candidates) < 2:
             return None
 
-        req_a, req_b = random.sample(candidates, 2)
+        req_a, req_b = self.rng.sample(candidates, 2)
 
         idx_pu_a = idx_do_a = idx_pu_b = idx_do_b = None
         for i, s in enumerate(stops):
@@ -344,7 +344,7 @@ class GAPolicy:
         """Apply a random mutation operator."""
         candidates = self._requests_in_plan(stops, 0)
         if len(candidates) >= 2:
-            op = random.choice([self._mutate_pair_relocate,
+            op = self.rng.choice([self._mutate_pair_relocate,
                                 self._mutate_pair_swap])
         else:
             op = self._mutate_pair_relocate
@@ -361,7 +361,7 @@ class GAPolicy:
         Tournament selection: pick tournament_size individuals at random,
         return the one with the lowest cost (best fitness).
         """
-        indices = random.sample(range(len(population)), self.tournament_size)
+        indices = self.rng.sample(range(len(population)), self.tournament_size)
         best_idx = min(indices, key=lambda i: fitnesses[i])
         return list(population[best_idx])
 
@@ -448,13 +448,13 @@ class GAPolicy:
                 parent_b = self._tournament_select(population, fitnesses)
 
                 # Crossover
-                if random.random() < self.crossover_rate:
+                if self.rng.random() < self.crossover_rate:
                     child = self._order_crossover(parent_a, parent_b)
                 else:
                     child = list(parent_a)
 
                 # Mutation
-                if random.random() < self.mutation_rate:
+                if self.rng.random() < self.mutation_rate:
                     mutated = self._mutate(child)
                     if mutated is not None:
                         child = mutated
@@ -511,7 +511,7 @@ class GAPolicy:
         for _ in range(max_attempts):
             # Apply 1-3 random mutations
             candidate = list(movable)
-            for _ in range(random.randint(1, 3)):
+            for _ in range(self.rng.randint(1, 3)):
                 mutated = self._mutate(candidate)
                 if mutated is not None:
                     candidate = mutated
@@ -558,7 +558,7 @@ class GAPolicy:
             if time.time() - start_time > self.decision_time_limit:
                 break
 
-            src_vid = random.choice(vehicle_ids)
+            src_vid = self.rng.choice(vehicle_ids)
             src_info = system_state["vehicles"][src_vid]
             n_committed_src = src_info.get("n_committed", 0)
             movable = self._requests_in_plan(working[src_vid], n_committed_src)
@@ -566,14 +566,14 @@ class GAPolicy:
             if not movable:
                 continue
 
-            dst_vid = random.choice(vehicle_ids)
+            dst_vid = self.rng.choice(vehicle_ids)
             if dst_vid == src_vid:
                 continue
 
             dst_info = system_state["vehicles"][dst_vid]
             n_committed_dst = dst_info.get("n_committed", 0)
 
-            req = random.choice(movable)
+            req = self.rng.choice(movable)
 
             # Remove PU+DO from source
             src_committed = working[src_vid][:n_committed_src]
@@ -596,8 +596,8 @@ class GAPolicy:
             dst_movable   = working[dst_vid][n_committed_dst:]
             n_dst = len(dst_movable)
 
-            i = random.randint(0, n_dst)
-            j = random.randint(i + 1, n_dst + 1)
+            i = self.rng.randint(0, n_dst)
+            j = self.rng.randint(i + 1, n_dst + 1)
 
             new_dst_movable = list(dst_movable)
             new_dst_movable.insert(i, pu_stop)

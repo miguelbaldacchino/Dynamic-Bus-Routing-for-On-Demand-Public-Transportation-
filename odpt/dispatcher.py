@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import random
 import time as _time
 from copy import deepcopy
 from typing import Optional
@@ -43,38 +44,52 @@ _TS_POLICY:   Optional[TSPolicy]   = None
 _ALNS_POLICY: Optional[ALNSPolicy] = None
 _RL_MODEL = None
 _RL_CFG   = None
+# Dedicated RNG for algorithm internals — seeded independently of the
+# simulation RNG so that SA/GA/TS/ALNS random calls never advance the
+# state that drives demand arrivals and travel noise.
+_ALGO_RNG: Optional[random.Random] = None
 
 
-def build_policy(cfg, model_path: str = None) -> None:
+def build_policy(
+    cfg,
+    model_path: str = None,
+    algo_rng: Optional[random.Random] = None,
+) -> None:
     """
     Initialise the dispatch policy.
 
     Parameters
     ----------
     cfg : SimulationConfig
-        cfg.policy selects the algorithm:
-        "greedy", "greedy+sa", "rl", "rl+sa"
+        cfg.policy selects the algorithm.
     model_path : str, optional
-        Path to trained MaskablePPO model.zip.
-        Required when cfg.policy contains "rl".
+        Path to trained MaskablePPO model.zip (required for RL policies).
+    algo_rng : random.Random, optional
+        Dedicated RNG instance for algorithm internals.  Must be seeded
+        independently of the simulation RNG that drives demand and noise.
+        If None, each policy creates its own Random() from os.urandom —
+        results are non-deterministic across algorithm comparisons.
     """
-    global _POLICY_NAME, _SA_POLICY, _GA_POLICY, _TS_POLICY, _ALNS_POLICY, _RL_MODEL, _RL_CFG
+    global _POLICY_NAME, _SA_POLICY, _GA_POLICY, _TS_POLICY, _ALNS_POLICY, \
+           _RL_MODEL, _RL_CFG, _ALGO_RNG
 
     _POLICY_NAME = cfg.policy.lower().strip()
-    _RL_CFG = cfg
+    _RL_CFG      = cfg
+    _ALGO_RNG    = algo_rng  # stored so _improve functions can inspect if needed
 
-    # --- SA setup (used by greedy+sa and rl+sa) ---
+    # --- SA setup ---
     if "sa" in _POLICY_NAME:
         _SA_POLICY = SAPolicy(
             initial_temp        = cfg.sa_initial_temp,
             cooling_rate        = cfg.sa_cooling_rate,
             iterations          = cfg.sa_iterations,
             decision_time_limit = cfg.sa_time_limit,
+            rng                 = algo_rng,
         )
     else:
         _SA_POLICY = None
 
-    # --- GA setup (used by greedy+ga and rl+ga) ---
+    # --- GA setup ---
     if "ga" in _POLICY_NAME:
         _GA_POLICY = GAPolicy(
             population_size     = cfg.ga_population,
@@ -84,11 +99,12 @@ def build_policy(cfg, model_path: str = None) -> None:
             tournament_size     = cfg.ga_tournament,
             elite_count         = cfg.ga_elite,
             decision_time_limit = cfg.ga_time_limit,
+            rng                 = algo_rng,
         )
     else:
         _GA_POLICY = None
 
-    # --- TS setup (used by greedy+ts and rl+ts) ---
+    # --- TS setup ---
     if "ts" in _POLICY_NAME:
         _TS_POLICY = TSPolicy(
             tabu_tenure         = cfg.ts_tabu_tenure,
@@ -96,11 +112,12 @@ def build_policy(cfg, model_path: str = None) -> None:
             iterations          = cfg.ts_iterations,
             patience            = cfg.ts_patience,
             decision_time_limit = cfg.ts_time_limit,
+            rng                 = algo_rng,
         )
     else:
         _TS_POLICY = None
 
-    # --- ALNS setup (used by greedy+alns and rl+alns) ---
+    # --- ALNS setup ---
     if "alns" in _POLICY_NAME:
         _ALNS_POLICY = ALNSPolicy(
             iterations          = cfg.alns_iterations,
@@ -110,6 +127,7 @@ def build_policy(cfg, model_path: str = None) -> None:
             initial_temp_factor = cfg.alns_temp_factor,
             cooling_rate        = cfg.alns_cooling,
             decision_time_limit = cfg.alns_time_limit,
+            rng                 = algo_rng,
         )
     else:
         _ALNS_POLICY = None

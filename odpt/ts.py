@@ -83,6 +83,7 @@ class TSPolicy:
         iterations:          int   = 200,
         patience:            int   = 30,
         decision_time_limit: float = 0.3,
+        rng: Optional[random.Random] = None,
     ):
         """
         Parameters
@@ -112,6 +113,8 @@ class TSPolicy:
         self.iterations          = iterations
         self.patience            = patience
         self.decision_time_limit = decision_time_limit
+        # Private RNG — isolated from the global state driving demand/noise.
+        self.rng = rng if rng is not None else random.Random()
 
     # ==================================================================
     # Public interface — matches SAPolicy.propose / GAPolicy.propose
@@ -256,7 +259,7 @@ class TSPolicy:
 
         # Cap the neighbourhood
         if len(all_moves) > self.max_neighbours:
-            all_moves = random.sample(all_moves, self.max_neighbours)
+            all_moves = self.rng.sample(all_moves, self.max_neighbours)
 
         return [(req, i, j, plan_) for req, i, j, plan_ in all_moves]
 
@@ -287,7 +290,7 @@ class TSPolicy:
 
         # Cap swap neighbourhood too
         if len(pairs) > self.max_neighbours // 2:
-            pairs = random.sample(pairs, self.max_neighbours // 2)
+            pairs = self.rng.sample(pairs, self.max_neighbours // 2)
 
         for req_a, req_b in pairs:
             idx_pu_a = idx_do_a = idx_pu_b = idx_do_b = None
@@ -503,7 +506,7 @@ class TSPolicy:
                 break
 
             # Pick source vehicle with movable requests
-            src_vid  = random.choice(vehicle_ids)
+            src_vid  = self.rng.choice(vehicle_ids)
             src_info = system_state["vehicles"][src_vid]
             n_committed_src = src_info.get("n_committed", 0)
             movable  = self._requests_in_plan(working[src_vid], n_committed_src)
@@ -512,14 +515,14 @@ class TSPolicy:
                 continue
 
             # Pick a different destination vehicle
-            dst_vid = random.choice(vehicle_ids)
+            dst_vid = self.rng.choice(vehicle_ids)
             if dst_vid == src_vid:
                 continue
 
             dst_info = system_state["vehicles"][dst_vid]
             n_committed_dst = dst_info.get("n_committed", 0)
 
-            req = random.choice(movable)
+            req = self.rng.choice(movable)
 
             # Remove PU+DO from source
             src_committed = working[src_vid][:n_committed_src]

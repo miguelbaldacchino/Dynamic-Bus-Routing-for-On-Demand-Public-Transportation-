@@ -153,6 +153,7 @@ class ALNSPolicy:
         initial_temp_factor: float = 0.5,
         cooling_rate:        float = 0.992,
         decision_time_limit: float = 0.3,
+        rng: Optional[random.Random] = None,
     ):
         """
         Parameters
@@ -179,6 +180,8 @@ class ALNSPolicy:
         self.initial_temp_factor = initial_temp_factor
         self.cooling_rate        = cooling_rate
         self.decision_time_limit = decision_time_limit
+        # Private RNG — isolated from the global state driving demand/noise.
+        self.rng = rng if rng is not None else random.Random()
 
     # ==================================================================
     # Public interface — matches SAPolicy / GAPolicy / TSPolicy
@@ -232,11 +235,10 @@ class ALNSPolicy:
     # Adaptive operator selection
     # ==================================================================
 
-    @staticmethod
-    def _roulette_select(ops: list[str], weights: dict[str, float]) -> str:
+    def _roulette_select(self, ops: list[str], weights: dict[str, float]) -> str:
         """Select one operator via roulette-wheel proportional to weights."""
         total = sum(weights[op] for op in ops)
-        r = random.uniform(0, total)
+        r = self.rng.uniform(0, total)
         cumulative = 0.0
         for op in ops:
             cumulative += weights[op]
@@ -355,7 +357,7 @@ class ALNSPolicy:
             return [], dict(plans)
 
         q_actual = min(q, len(pool))
-        chosen   = random.sample(pool, q_actual)
+        chosen   = self.rng.sample(pool, q_actual)
 
         removed  = []
         new_plans = {vid: list(p) for vid, p in plans.items()}
@@ -479,7 +481,7 @@ class ALNSPolicy:
         max_dist = 1.0
         if len(sample_reqs) >= 2:
             for _ in range(min(20, len(sample_reqs))):
-                r1, r2 = random.sample(sample_reqs, 2)
+                r1, r2 = self.rng.sample(sample_reqs, 2)
                 d = travel_fn(
                     stop_map[r1][0].node,
                     stop_map[r2][0].node, 0.0,
@@ -488,7 +490,7 @@ class ALNSPolicy:
                     max_dist = d
 
         # Choose seed request
-        seed_req, seed_vid = random.choice(pool)
+        seed_req, seed_vid = self.rng.choice(pool)
         if seed_req not in stop_map:
             return [], dict(plans)
 
@@ -555,7 +557,7 @@ class ALNSPolicy:
 
         # Shuffle to remove ordering bias
         order = list(removed)
-        random.shuffle(order)
+        self.rng.shuffle(order)
 
         for req_id, pu_stop, do_stop in order:
             best_cost = float("inf")
@@ -720,7 +722,7 @@ class ALNSPolicy:
             ))
             if n_movable < 2:
                 break
-            q = random.randint(
+            q = self.rng.randint(
                 self.q_min,
                 min(self.q_max, max(1, n_movable - 1)),
             )
@@ -773,7 +775,7 @@ class ALNSPolicy:
             accepted = False
             if delta < 0:
                 accepted = True
-            elif temp > 1e-6 and random.random() < math.exp(-delta / temp):
+            elif temp > 1e-6 and self.rng.random() < math.exp(-delta / temp):
                 accepted = True
 
             # Score the operators
@@ -874,7 +876,7 @@ class ALNSPolicy:
             if total_movable < 2:
                 break
 
-            q = random.randint(
+            q = self.rng.randint(
                 self.q_min,
                 min(self.q_max, max(1, total_movable - 1)),
             )
@@ -930,7 +932,7 @@ class ALNSPolicy:
             accepted = False
             if delta < 0:
                 accepted = True
-            elif temp > 1e-6 and random.random() < math.exp(-delta / temp):
+            elif temp > 1e-6 and self.rng.random() < math.exp(-delta / temp):
                 accepted = True
 
             if new_cost < best_cost:

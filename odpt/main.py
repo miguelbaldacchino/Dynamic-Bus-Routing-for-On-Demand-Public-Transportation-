@@ -67,6 +67,8 @@ def vehicle_process(
     metrics:      MetricsCollector,
     cfg:          SimulationConfig,
     logger,
+    sim_rng:      random.Random,
+    noise_rng:    random.Random,
     verbose:      bool = False,
 ) -> None:
 
@@ -97,7 +99,7 @@ def vehicle_process(
                   f"-> {stop.kind} {stop.req_id} node {stop.node}")
 
         if cfg.travel_noise > 0 and planned_travel > 0:
-            noise_factor = random.lognormvariate(0.0, cfg.travel_noise)
+            noise_factor = noise_rng.lognormvariate(0.0, cfg.travel_noise)
             actual_travel = planned_travel * noise_factor
         else:
             actual_travel = planned_travel
@@ -199,13 +201,14 @@ def request_generator(
     requests:     dict,
     metrics:      MetricsCollector,
     logger,
+    sim_rng:      random.Random,
     verbose:      bool = False,
 ) -> None:
 
     for i in range(1, cfg.n_requests + 1):
         mean_gap = arrival_rate(env.now, cfg)
         if cfg.stochastic_arrivals:
-            gap = random.expovariate(1.0 / mean_gap)
+            gap = sim_rng.expovariate(1.0 / mean_gap)
         else:
             gap = mean_gap
         yield env.timeout(gap)
@@ -213,10 +216,10 @@ def request_generator(
         if env.now >= cfg.service_end:
             break
 
-        pu = random.randint(1, cfg.n_nodes)
-        do = random.randint(1, cfg.n_nodes)
+        pu = sim_rng.randint(1, cfg.n_nodes)
+        do = sim_rng.randint(1, cfg.n_nodes)
         while do == pu:
-            do = random.randint(1, cfg.n_nodes)
+            do = sim_rng.randint(1, cfg.n_nodes)
 
         req = Request(
             id           = f"R{i}",
@@ -266,7 +269,28 @@ def main(
     if cfg is None:
         cfg = SimulationConfig()
 
-    random.seed(cfg.seed)
+    # ---------------------------------------------------------------
+    # Three independent RNG instances — the correct reproducibility fix.
+    #
+    # _sim_rng   drives ONLY request arrivals: inter-arrival gaps and
+    #            pickup/dropoff node sampling.  Identical sequence on
+    #            every run regardless of algorithm or vehicle movements.
+    #
+    # _noise_rng drives ONLY travel noise: lognormal draw per vehicle
+    #            leg.  Separated from _sim_rng so that vehicle movement
+    #            patterns (which differ per algorithm) never shift the
+    #            arrival sequence.
+    #
+    # _algo_rng  drives ONLY algorithm internals: SA temperature draws,
+    #            GA crossover/mutation, TS neighbourhood sampling, ALNS
+    #            operator selection.
+    #
+    # Result: every policy on seed=42 processes the exact same request
+    # stream with the exact same inter-arrival gaps and node assignments.
+    # ---------------------------------------------------------------
+    _sim_rng   = random.Random(cfg.seed)
+    _noise_rng = random.Random(cfg.seed + 1)
+    _algo_rng  = random.Random(cfg.seed + 999)
 
     env          = simpy.Environment()
     coords       = DEFAULT_COORDS
@@ -284,7 +308,7 @@ def main(
         pass
 
     # === Build the dispatch policy ===
-    build_policy(cfg, model_path=model_path)
+    build_policy(cfg, model_path=model_path, algo_rng=_algo_rng)
 
     vehicles = {
         f"Bus-{k+1}": Vehicle(
@@ -352,12 +376,12 @@ def main(
     for vehicle in vehicles.values():
         env.process(vehicle_process(
             env, vehicle, travel_fn, system_state,
-            requests, metrics, cfg, logger, verbose,
+            requests, metrics, cfg, logger, _sim_rng, _noise_rng, verbose,
         ))
 
     env.process(request_generator(
         env, vehicles, system_state, cfg.weights,
-        cfg, direct_times, travel_fn, requests, metrics, logger, verbose,
+        cfg, direct_times, travel_fn, requests, metrics, logger, _sim_rng, verbose,
     ))
 
     env.run(until=cfg.horizon)

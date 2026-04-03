@@ -26,7 +26,7 @@ import math
 import random
 import time
 from copy import deepcopy
-from typing import Callable
+from typing import Callable, Optional
 
 from feasibility import evaluate_plan
 
@@ -39,11 +39,15 @@ class SAPolicy:
         cooling_rate:        float = 0.995,
         iterations:          int   = 5_000,
         decision_time_limit: float = 0.3,
+        rng: Optional[random.Random] = None,
     ):
         self.initial_temp        = initial_temp
         self.cooling_rate        = cooling_rate
         self.iterations          = iterations
         self.decision_time_limit = decision_time_limit
+        # Private RNG — never touches the global random state that
+        # drives demand arrivals and travel noise.
+        self.rng = rng if rng is not None else random.Random()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -124,7 +128,7 @@ class SAPolicy:
         if not candidates:
             return None
 
-        req = random.choice(candidates)
+        req = self.rng.choice(candidates)
         committed = plan[:n_committed]
         movable   = plan[n_committed:]
 
@@ -141,8 +145,8 @@ class SAPolicy:
         stripped = [s for s in movable if s.req_id != req]
         n = len(stripped)
 
-        i = random.randint(0, n)
-        j = random.randint(i + 1, n + 1)
+        i = self.rng.randint(0, n)
+        j = self.rng.randint(i + 1, n + 1)
 
         new_movable = list(stripped)
         new_movable.insert(i, pu_stop)
@@ -158,7 +162,7 @@ class SAPolicy:
         if len(candidates) < 2:
             return None
 
-        req_a, req_b = random.sample(candidates, 2)
+        req_a, req_b = self.rng.sample(candidates, 2)
 
         # Work on the full plan but only swap within movable portion
         idx_pu_a = idx_do_a = idx_pu_b = idx_do_b = None
@@ -187,7 +191,7 @@ class SAPolicy:
     def _neighbour_intra(self, plan: list, n_committed: int):
         complete = self._requests_in_plan(plan, n_committed)
         if len(complete) >= 2:
-            op = random.choice([self._pair_relocate, self._pair_swap])
+            op = self.rng.choice([self._pair_relocate, self._pair_swap])
         else:
             op = self._pair_relocate
         return op(plan, n_committed)
@@ -235,7 +239,7 @@ class SAPolicy:
             )
             delta = candidate_cost - current_cost
 
-            if delta < 0 or random.random() < math.exp(-delta / max(temp, 1e-10)):
+            if delta < 0 or self.rng.random() < math.exp(-delta / max(temp, 1e-10)):
                 current      = candidate
                 current_cost = candidate_cost
 
@@ -291,7 +295,7 @@ class SAPolicy:
                 break
 
             # Pick a source vehicle with movable requests
-            src_vid = random.choice(vehicle_ids)
+            src_vid = self.rng.choice(vehicle_ids)
             src_info = system_state["vehicles"][src_vid]
             n_committed_src = src_info.get("n_committed", 0)
             movable = self._requests_in_plan(working[src_vid], n_committed_src)
@@ -300,7 +304,7 @@ class SAPolicy:
                 continue
 
             # Pick a destination vehicle (different from source)
-            dst_vid = random.choice(vehicle_ids)
+            dst_vid = self.rng.choice(vehicle_ids)
             if dst_vid == src_vid:
                 continue
 
@@ -308,7 +312,7 @@ class SAPolicy:
             n_committed_dst = dst_info.get("n_committed", 0)
 
             # Pick a request to move
-            req = random.choice(movable)
+            req = self.rng.choice(movable)
 
             # Remove PU+DO from source
             src_committed = working[src_vid][:n_committed_src]
@@ -331,8 +335,8 @@ class SAPolicy:
             dst_movable   = working[dst_vid][n_committed_dst:]
             n_dst = len(dst_movable)
 
-            i = random.randint(0, n_dst)
-            j = random.randint(i + 1, n_dst + 1)
+            i = self.rng.randint(0, n_dst)
+            j = self.rng.randint(i + 1, n_dst + 1)
 
             new_dst_movable = list(dst_movable)
             new_dst_movable.insert(i, pu_stop)
@@ -356,7 +360,7 @@ class SAPolicy:
             )
             delta = new_cost - old_cost
 
-            if delta < 0 or random.random() < math.exp(-delta / max(temp, 1e-10)):
+            if delta < 0 or self.rng.random() < math.exp(-delta / max(temp, 1e-10)):
                 working[src_vid] = new_src
                 working[dst_vid] = new_dst
                 improvements[src_vid] = new_src
