@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "policy": "greedy+sa",
+    "model_key": null,
+    "seed": 43,
+    "label": "greedy+sa"
+  },
+  "metrics": {
+    "total_requests": 390,
+    "served": 329,
+    "rejected": 61,
+    "in_progress": 0,
+    "service_rate": 0.8435897435897436,
+    "mean_wait": 12.883668492319359,
+    "p95_wait": 29.59365552341457,
+    "mean_ride": 8.555437451804135,
+    "p95_ride": 16.610837117869167,
+    "mean_detour_ratio": 1.2966856513920446,
+    "p95_detour_ratio": 1.9034254553357248,
+    "total_distance": 3377.8254505669506,
+    "improvements": 33,
+    "mean_latency_ms": 96.33360092456525,
+    "p95_latency_ms": 350.803005695343,
+    "violations_total": 13,
+    "violations_wait": 13,
+    "violations_ride": 0,
+    "mean_wait_excess": 1.1678582369285357,
+    "mean_ride_excess": null,
+    "_run_wall_seconds": 37.61,
+    "_policy_label": "greedy+sa",
+    "_seed": 43
+  }
+}

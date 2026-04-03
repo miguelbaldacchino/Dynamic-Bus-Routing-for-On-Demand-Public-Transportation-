@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "policy": "greedy+alns",
+    "model_key": null,
+    "seed": 42,
+    "label": "greedy+alns"
+  },
+  "metrics": {
+    "total_requests": 333,
+    "served": 297,
+    "rejected": 36,
+    "in_progress": 0,
+    "service_rate": 0.8918918918918919,
+    "mean_wait": 7.732530166485764,
+    "p95_wait": 23.196374863384825,
+    "mean_ride": 8.395920080870356,
+    "p95_ride": 15.598926163742744,
+    "mean_detour_ratio": 1.249476822839374,
+    "p95_detour_ratio": 1.7945155841659703,
+    "total_distance": 3042.202634031407,
+    "improvements": 85,
+    "mean_latency_ms": 55.14361693694427,
+    "p95_latency_ms": 265.83356857299805,
+    "violations_total": 1,
+    "violations_wait": 1,
+    "violations_ride": 0,
+    "mean_wait_excess": 1.7243775394572367,
+    "mean_ride_excess": null,
+    "_run_wall_seconds": 18.4,
+    "_policy_label": "greedy+alns",
+    "_seed": 42
+  }
+}
