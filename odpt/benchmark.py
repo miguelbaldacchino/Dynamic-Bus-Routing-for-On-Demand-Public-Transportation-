@@ -4,17 +4,25 @@
 #
 # Runs every policy combination across multiple seeds, collects per-run
 # summary.json files, then computes mean ± std for every metric and writes
-# a single aggregated results table.
+# a structured results report.
+#
+# Policy matrix
+# -------------
+# Greedy family  : greedy, greedy+sa, greedy+ts, greedy+ga, greedy+alns
+# RL base        : rl, rl+sa, rl+ts, rl+ga, rl+alns  (untuned model)
+# RL v3          : rl, rl+sa, rl+ts, rl+ga, rl+alns  (standalone-objective tune)
+# RL v4          : rl, rl+sa, rl+ts, rl+ga, rl+alns  (TS-initialiser tune — champion)
 #
 # Usage
 # -----
-#   python benchmark.py                        # all policies, 5 seeds
-#   python benchmark.py --seeds 42 43 44       # specific seeds
-#   python benchmark.py --n-seeds 10           # 10 seeds starting from 42
-#   python benchmark.py --policies greedy greedy+ts greedy+ga
-#   python benchmark.py --no-rl                # skip RL policies (no model needed)
-#   python benchmark.py --out benchmark_results
-#   python benchmark.py --workers 4            # parallel runs (experimental)
+#   python benchmark.py                          # all policies, 5 seeds
+#   python benchmark.py --n-seeds 10
+#   python benchmark.py --seeds 42 43 44 45 46
+#   python benchmark.py --no-rl                  # greedy family only
+#   python benchmark.py --rl-model rl_v4         # only v4 RL policies
+#   python benchmark.py --rl-model rl_v4 rl_base # subset of RL models
+#   python benchmark.py --out thesis_benchmark
+#   python benchmark.py --stop-on-error
 #
 # Outputs
 # -------
@@ -22,7 +30,8 @@
 #     runs/            one summary.json per (policy, seed) run
 #     aggregated.json  mean ± std for every metric, every policy
 #     aggregated.csv   same, in spreadsheet-friendly format
-#     report.txt       human-readable table for thesis appendix
+#     report.txt       human-readable thesis tables (service, operational,
+#                      worst-case seed, constraint compliance)
 
 from __future__ import annotations
 
@@ -33,19 +42,37 @@ import os
 import sys
 import time
 import traceback
-from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean, stdev
 from typing import Optional
 
 
 # ---------------------------------------------------------------------------
+# !! USER ACTION REQUIRED — update these paths to your actual model files !!
+# ---------------------------------------------------------------------------
+MODEL_REGISTRY = {
+    # Untuned RL (run_006 from rl_train.py — no Optuna tuning)
+    "rl_base": "rl_outputs/run_006/model.zip",
+
+    # v3 tune — standalone-objective model (best v3 Optuna trial)
+    # Update this path to your best v3 training run.
+    "rl_v3":   "rl_outputs/run_008/model.zip",
+
+    # v4 tune — TS-initialiser model, trained via rl_train_from_tune.py.
+    # Use model_final.zip — confirmed from tfevents that the best callback
+    # score (8.083) was recorded at step 999,960 = the final step, meaning
+    # model_final.zip and checkpoints/best/ are the same weights.
+    # model_final.zip is the cleaner reference.
+    # !! UPDATE THIS PATH to your v4 run directory.
+    "rl_v4":   "rl_outputs/run_009/model_final.zip",
+}
+
+
+# ---------------------------------------------------------------------------
 # Policy registry
 # ---------------------------------------------------------------------------
 
-# Each entry: (policy_name, model_key_or_None)
-# model_key matches MODEL_REGISTRY in main.py
 _GREEDY_POLICIES = [
     ("greedy",      None),
     ("greedy+sa",   None),
@@ -54,40 +81,62 @@ _GREEDY_POLICIES = [
     ("greedy+alns", None),
 ]
 
+# All three RL models × all five policy variants.
+# Produces 15 RL policies + 5 greedy = 20 total × n_seeds runs.
 _RL_POLICIES = [
-    ("rl",        "rl_tuned"),
-    ("rl",        "rl_base"),
-    ("rl+sa",     "rl_tuned"),
-    ("rl+sa",     "rl_base"),
-    ("rl+ts",     "rl_tuned"),
-    ("rl+ts",     "rl_base"),
-    ("rl+ga",     "rl_tuned"),
-    ("rl+ga",     "rl_base"),
-    ("rl+alns",   "rl_tuned"),
-    ("rl+alns",   "rl_base"),
+    # ---- Standalone (no post-processing) ----
+    ("rl",     "rl_base"),
+    ("rl",     "rl_v3"),
+    ("rl",     "rl_v4"),
+    # ---- RL + Simulated Annealing ----
+    ("rl+sa",  "rl_base"),
+    ("rl+sa",  "rl_v3"),
+    ("rl+sa",  "rl_v4"),
+    # ---- RL + Tabu Search (primary hybrid) ----
+    ("rl+ts",  "rl_base"),
+    ("rl+ts",  "rl_v3"),
+    ("rl+ts",  "rl_v4"),
+    # ---- RL + Genetic Algorithm ----
+    ("rl+ga",  "rl_base"),
+    ("rl+ga",  "rl_v3"),
+    ("rl+ga",  "rl_v4"),
+    # ---- RL + ALNS ----
+    ("rl+alns","rl_base"),
+    ("rl+alns","rl_v3"),
+    ("rl+alns","rl_v4"),
 ]
 
-MODEL_REGISTRY = {
-    "rl_tuned": "rl_outputs/run_008/model.zip",
-    "rl_base":  "rl_outputs/run_006/model.zip",
-}
-
-# Metrics to aggregate (must match keys in summary["metrics"])
+# All metric keys produced by metrics.MetricsCollector.summary().
+# Must stay in sync with that file.
 METRIC_KEYS = [
+    # Demand
     "total_requests",
     "served",
     "rejected",
     "service_rate",
+    # Wait time
     "mean_wait",
+    "p50_wait",
     "p95_wait",
+    "max_wait",
+    "min_wait",
+    "std_wait",
+    # Ride time
     "mean_ride",
     "p95_ride",
+    # Detour
     "mean_detour_ratio",
     "p95_detour_ratio",
+    # Fleet efficiency
     "total_distance",
+    "loaded_distance",
+    "empty_distance",
+    "deadhead_ratio",
+    # Algorithm
     "improvements",
     "mean_latency_ms",
     "p95_latency_ms",
+    # Constraint compliance
     "violations_total",
     "violations_wait",
     "violations_ride",
@@ -102,20 +151,18 @@ METRIC_KEYS = [
 
 @dataclass
 class RunSpec:
-    policy:     str
-    model_key:  Optional[str]   # None for greedy policies
-    seed:       int
+    policy:    str
+    model_key: Optional[str]
+    seed:      int
 
     @property
     def label(self) -> str:
-        """Human-readable identifier used in output filenames and tables."""
         if self.model_key:
             return f"{self.policy} ({self.model_key})"
         return self.policy
 
     @property
     def filename_stem(self) -> str:
-        """Safe filename stem: policy__modelkey__seed."""
         pol  = self.policy.replace("+", "_plus_")
         mkey = self.model_key or "none"
         return f"{pol}__{mkey}__seed{self.seed}"
@@ -125,31 +172,36 @@ class RunSpec:
 # Single run executor
 # ---------------------------------------------------------------------------
 
-def execute_run(spec: RunSpec, out_dir: Path, verbose: bool = False) -> dict:
+def execute_run(spec: RunSpec, out_dir: Path,
+                verbose: bool = False,
+                sim_params: dict = None) -> dict:
     """
     Execute one simulation run and return its summary dict.
 
-    Imports main lazily to avoid loading heavy dependencies at module level.
-    Each call is fully isolated — SimPy environment, RNGs, and vehicle
-    state are all created fresh inside main().
+    sim_params : dict of SimulationConfig overrides for sensitivity runs.
+                 Any key accepted by SimulationConfig can be passed.
+                 Example: {"fleet_size": 4, "n_requests": 280}
     """
     from config import SimulationConfig
     from main import main as sim_main
 
     model_path = MODEL_REGISTRY.get(spec.model_key) if spec.model_key else None
 
-    # Validate model file exists before burning time on a run
     if model_path and not os.path.exists(model_path):
         raise FileNotFoundError(
             f"Model not found: {model_path}\n"
-            f"Train a model first or skip RL policies with --no-rl"
+            f"Update MODEL_REGISTRY in benchmark.py, or skip RL with --no-rl"
         )
 
-    cfg = SimulationConfig(
-        seed       = spec.seed,
-        policy     = spec.policy,
-        n_requests = 400,
-    )
+    base = {
+        "seed":       spec.seed,
+        "policy":     spec.policy,
+        "n_requests": 400,
+    }
+    if sim_params:
+        base.update(sim_params)
+
+    cfg = SimulationConfig(**base)
 
     t0 = time.time()
     metrics = sim_main(cfg=cfg, model_path=model_path, verbose=verbose, visualize=False)
@@ -159,30 +211,27 @@ def execute_run(spec: RunSpec, out_dir: Path, verbose: bool = False) -> dict:
     summary["_run_wall_seconds"] = round(elapsed, 2)
     summary["_policy_label"]     = spec.label
     summary["_seed"]             = spec.seed
+    summary["_sim_params"]       = base   # record what was varied
 
-    # Save individual run JSON
     run_path = out_dir / f"{spec.filename_stem}.json"
     with open(run_path, "w") as f:
-        json.dump({"spec": {"policy": spec.policy,
-                             "model_key": spec.model_key,
-                             "seed": spec.seed,
-                             "label": spec.label},
-                   "metrics": summary}, f, indent=2, default=str)
+        json.dump({
+            "spec":       {"policy": spec.policy,
+                           "model_key": spec.model_key,
+                           "seed": spec.seed,
+                           "label": spec.label},
+            "sim_params": base,
+            "metrics":    summary,
+        }, f, indent=2, default=str)
 
     return summary
 
 
 # ---------------------------------------------------------------------------
-# Aggregator
+# Aggregator — mean ± std across seeds, plus per-seed values for worst-case
 # ---------------------------------------------------------------------------
 
 def aggregate(results: dict[str, list[dict]]) -> dict[str, dict]:
-    """
-    Aggregate per-seed metric dicts into mean ± std per policy label.
-
-    results: { policy_label: [metrics_dict_seed1, metrics_dict_seed2, ...] }
-    returns: { policy_label: { metric: {mean, std, n, values} } }
-    """
     aggregated = {}
 
     for label, runs in results.items():
@@ -199,9 +248,22 @@ def aggregate(results: dict[str, list[dict]]) -> dict[str, dict]:
                 "std":    round(sd, 4),
                 "n":      len(values),
                 "values": [round(v, 4) for v in values],
+                # Worst-case for robustness analysis
+                "worst":  round(max(values), 4) if values else None,
+                "best":   round(min(values), 4) if values else None,
             }
 
-        # Wall time (not a metric, just informational)
+        # Per-seed breakdown (for worst-case table in report)
+        per_seed = {}
+        for run in runs:
+            seed = run.get("_seed")
+            if seed is not None:
+                per_seed[seed] = {
+                    k: round(run[k], 4) if isinstance(run.get(k), float) else run.get(k)
+                    for k in METRIC_KEYS if run.get(k) is not None
+                }
+        agg["_per_seed"] = per_seed
+
         wall = [r["_run_wall_seconds"] for r in runs if "_run_wall_seconds" in r]
         agg["_wall_seconds"] = {"mean": round(mean(wall), 1)} if wall else {}
 
@@ -215,14 +277,14 @@ def aggregate(results: dict[str, list[dict]]) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 def write_csv(aggregated: dict, path: Path) -> None:
-    """Write aggregated results to CSV — one row per policy, mean and std columns."""
     rows = []
     for label, agg in aggregated.items():
         row = {"policy": label}
         for key in METRIC_KEYS:
             entry = agg.get(key, {})
-            row[f"{key}_mean"] = entry.get("mean", "")
-            row[f"{key}_std"]  = entry.get("std",  "")
+            row[f"{key}_mean"]  = entry.get("mean",  "")
+            row[f"{key}_std"]   = entry.get("std",   "")
+            row[f"{key}_worst"] = entry.get("worst", "")
         rows.append(row)
 
     if not rows:
@@ -236,25 +298,18 @@ def write_csv(aggregated: dict, path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Text report writer
+# Report writer — three structured tables for thesis appendix
 # ---------------------------------------------------------------------------
 
 def write_report(aggregated: dict, seeds: list[int], path: Path) -> None:
     """
-    Write a human-readable comparison table for the thesis appendix.
-    Shows mean (± std) for the primary thesis metrics.
+    Write a structured human-readable report for the thesis appendix.
+
+    Table 1 — Service quality    : service rate, wait (mean/p50/p95/max/σ), ride, detour
+    Table 2 — Operational         : VKT, deadhead ratio, improvements, decision latency
+    Table 3 — Worst-case seeds    : mean_wait per seed for every policy (robustness)
+    Table 4 — Constraint compliance: violations
     """
-    PRIMARY = [
-        ("service_rate",      "service rate",    ".1%"),
-        ("mean_wait",         "mean wait (min)", ".2f"),
-        ("p95_wait",          "p95 wait (min)",  ".2f"),
-        ("mean_ride",         "mean ride (min)", ".2f"),
-        ("mean_detour_ratio", "mean detour",     ".3f"),
-        ("total_distance",    "total dist",      ".0f"),
-        ("mean_latency_ms",   "mean lat (ms)",   ".1f"),
-        ("p95_latency_ms",    "p95 lat (ms)",    ".0f"),
-        ("violations_total",  "violations",      ".0f"),
-    ]
 
     def fmt(val, fmtstr):
         if val is None:
@@ -263,42 +318,153 @@ def write_report(aggregated: dict, seeds: list[int], path: Path) -> None:
             return f"{val:.1%}"
         return format(val, fmtstr)
 
+    def cell(agg, key, fmtstr, show_std=True):
+        entry = agg.get(key, {})
+        m  = entry.get("mean")
+        sd = entry.get("std")
+        if m is None:
+            return "n/a"
+        s = fmt(m, fmtstr)
+        if show_std and sd is not None and sd > 0.001:
+            s += f" ±{fmt(sd, fmtstr)}"
+        return s
+
+    def cell_worst(agg, key, fmtstr):
+        entry = agg.get(key, {})
+        w = entry.get("worst")
+        return fmt(w, fmtstr) if w is not None else "n/a"
+
     lines = []
-    lines.append("=" * 100)
-    lines.append("BENCHMARK RESULTS — DARP SIMULATION")
-    lines.append(f"Seeds: {seeds}   n_seeds={len(seeds)}")
-    lines.append("=" * 100)
-    lines.append("")
 
-    # Header
-    col_w = 22
-    metric_w = 14
-    header = f"{'Policy':<{col_w}}"
-    for _, col_label, _ in PRIMARY:
-        header += f"  {col_label:>{metric_w}}"
-    lines.append(header)
-    lines.append("-" * len(header))
+    def ruler(n):
+        return "=" * n
 
+    def sub_ruler(n):
+        return "-" * n
+
+    lines += [
+        ruler(110),
+        "BENCHMARK RESULTS — DARP SIMULATION (Malta On Demand)",
+        f"Seeds: {seeds}   n_seeds={len(seeds)}",
+        "Values shown as mean ± std_cross_seed unless noted.",
+        ruler(110),
+        "",
+    ]
+
+    # ── Table 1: Service quality ─────────────────────────────────────────────
+    T1 = [
+        ("service_rate",     "svc rate",    ".1%"),
+        ("mean_wait",        "wait mean",   ".2f"),
+        ("p50_wait",         "wait p50",    ".2f"),
+        ("p95_wait",         "wait p95",    ".2f"),
+        ("max_wait",         "wait max",    ".2f"),
+        ("min_wait",         "wait min",    ".2f"),
+        ("std_wait",         "wait σ",      ".2f"),
+        ("mean_ride",        "ride mean",   ".2f"),
+        ("p95_ride",         "ride p95",    ".2f"),
+        ("mean_detour_ratio","detour mean", ".3f"),
+        ("p95_detour_ratio", "detour p95",  ".3f"),
+        ("rejected",         "rejected",    ".1f"),
+    ]
+    col_w = 26; m_w = 12
+    lines.append("TABLE 1 — SERVICE QUALITY  (wait/ride in minutes)")
+    lines.append(sub_ruler(col_w + (m_w + 2) * len(T1)))
+    hdr = f"{'Policy':<{col_w}}" + "".join(f"  {c:>{m_w}}" for _, c, _ in T1)
+    lines += [hdr, sub_ruler(len(hdr))]
     for label, agg in aggregated.items():
         row = f"{label:<{col_w}}"
-        for key, _, fmtstr in PRIMARY:
-            entry = agg.get(key, {})
-            m  = entry.get("mean")
-            sd = entry.get("std")
-            if m is None:
-                cell = "n/a"
-            elif sd is not None and sd > 0:
-                cell = f"{fmt(m, fmtstr)} ±{fmt(sd, fmtstr)}"
-            else:
-                cell = fmt(m, fmtstr)
-            row += f"  {cell:>{metric_w}}"
+        for key, _, fmtstr in T1:
+            show_std = key in ("mean_wait", "service_rate", "rejected")
+            row += f"  {cell(agg, key, fmtstr, show_std):>{m_w}}"
         lines.append(row)
+    lines += [
+        "",
+        "  std_cross_seed shown for mean_wait, service_rate, rejected only.",
+        "  wait σ = within-run standard deviation across passengers (equity metric).",
+        "  wait min = best-case passenger experience; detour p95 = tail comfort bound.",
+        "",
+    ]
 
-    lines.append("")
-    lines.append("Values shown as mean ± std across seeds.")
-    lines.append("Violations = execution-time hard constraint breaches.")
-    lines.append("Latency = full decision epoch (insertion + improvement pass).")
-    lines.append("")
+    # ── Table 2: Operational efficiency ─────────────────────────────────────
+    T2 = [
+        ("total_distance",  "total VKT",  ".1f"),
+        ("loaded_distance", "loaded VKT", ".1f"),
+        ("empty_distance",  "empty VKT",  ".1f"),
+        ("deadhead_ratio",  "deadhead %", ".1%"),
+        ("improvements",    "improvements",".1f"),
+        ("mean_latency_ms", "lat mean ms",".1f"),
+        ("p95_latency_ms",  "lat p95 ms", ".0f"),
+    ]
+    lines.append("TABLE 2 — OPERATIONAL EFFICIENCY")
+    lines.append(sub_ruler(col_w + (m_w + 2) * len(T2)))
+    hdr = f"{'Policy':<{col_w}}" + "".join(f"  {c:>{m_w}}" for _, c, _ in T2)
+    lines += [hdr, sub_ruler(len(hdr))]
+    for label, agg in aggregated.items():
+        row = f"{label:<{col_w}}"
+        for key, _, fmtstr in T2:
+            row += f"  {cell(agg, key, fmtstr, show_std=False):>{m_w}}"
+        lines.append(row)
+    lines += [
+        "",
+        "  VKT = vehicle-kilometres travelled (minutes proxy — same units as simulation).",
+        "  Deadhead = fraction of total distance driven with no passengers aboard.",
+        "  Improvements = successful metaheuristic route-improvement steps.",
+        "  Latency = full dispatch decision epoch (insertion + improvement pass).",
+        "",
+    ]
+
+    # ── Table 3: Worst-case seed robustness (mean_wait per seed) ────────────
+    lines.append("TABLE 3 — WORST-CASE SEED ANALYSIS  (mean_wait per seed, minutes)")
+    seed_cols = sorted(seeds)
+    s_w = 10
+    lines.append(sub_ruler(col_w + (s_w + 2) * len(seed_cols) + s_w + 4))
+    hdr = (f"{'Policy':<{col_w}}"
+           + "".join(f"  {'s'+str(s):>{s_w}}" for s in seed_cols)
+           + f"  {'WORST':>{s_w}}")
+    lines += [hdr, sub_ruler(len(hdr))]
+    for label, agg in aggregated.items():
+        per_seed = agg.get("_per_seed", {})
+        mw_entry = agg.get("mean_wait", {})
+        row = f"{label:<{col_w}}"
+        worst_val = None
+        for s in seed_cols:
+            v = per_seed.get(s, {}).get("mean_wait")
+            row += f"  {fmt(v, '.2f'):>{s_w}}"
+            if v is not None:
+                worst_val = max(worst_val, v) if worst_val is not None else v
+        row += f"  {fmt(worst_val, '.2f'):>{s_w}}"
+        lines.append(row)
+    lines += [
+        "",
+        "  WORST = highest mean_wait observed across any single seed.",
+        "  A robust policy shows low variance across this row.",
+        "",
+    ]
+
+    # ── Table 4: Constraint compliance ──────────────────────────────────────
+    T4 = [
+        ("violations_total", "violations", ".0f"),
+        ("violations_wait",  "wait viols", ".0f"),
+        ("violations_ride",  "ride viols", ".0f"),
+        ("mean_wait_excess", "wait excess",".2f"),
+        ("mean_ride_excess", "ride excess",".2f"),
+    ]
+    lines.append("TABLE 4 — CONSTRAINT COMPLIANCE")
+    lines.append(sub_ruler(col_w + (m_w + 2) * len(T4)))
+    hdr = f"{'Policy':<{col_w}}" + "".join(f"  {c:>{m_w}}" for _, c, _ in T4)
+    lines += [hdr, sub_ruler(len(hdr))]
+    for label, agg in aggregated.items():
+        row = f"{label:<{col_w}}"
+        for key, _, fmtstr in T4:
+            row += f"  {cell(agg, key, fmtstr, show_std=False):>{m_w}}"
+        lines.append(row)
+    lines += [
+        "",
+        "  Violations = execution-time hard constraint breaches (target: 0).",
+        "  Wait/ride excess = mean overshoot in minutes when a violation occurs.",
+        "",
+        ruler(110),
+    ]
 
     with open(path, "w") as f:
         f.write("\n".join(lines))
@@ -318,27 +484,13 @@ def _bar(done: int, total: int, width: int = 30) -> str:
 # ---------------------------------------------------------------------------
 
 def run_benchmark(
-    policies:   list[tuple[str, Optional[str]]],
-    seeds:      list[int],
-    out_root:   str = "benchmark_results",
-    verbose:    bool = False,
+    policies:      list[tuple[str, Optional[str]]],
+    seeds:         list[int],
+    out_root:      str  = "benchmark_results",
+    verbose:       bool = False,
     stop_on_error: bool = False,
+    sim_params:    dict = None,
 ) -> dict:
-    """
-    Run all (policy, seed) combinations and return aggregated results.
-
-    Parameters
-    ----------
-    policies    : list of (policy_name, model_key_or_None)
-    seeds       : list of integer seeds
-    out_root    : root output directory
-    verbose     : pass through to sim_main
-    stop_on_error : raise on first failure instead of logging and continuing
-
-    Returns
-    -------
-    aggregated dict from aggregate()
-    """
     out_root_path = Path(out_root)
     runs_dir      = out_root_path / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
@@ -354,13 +506,13 @@ def run_benchmark(
     print(f"  Policies : {len(policies)}")
     print(f"  Seeds    : {seeds}")
     print(f"  Total    : {total} runs")
+    if sim_params:
+        print(f"  Overrides: {sim_params}")
     print(f"  Output   : {out_root_path.resolve()}")
     print(f"{'=' * 60}\n")
 
-    # Group results by policy label for aggregation
     results: dict[str, list[dict]] = {}
     errors:  list[tuple[RunSpec, str]] = []
-
     t_total_start = time.time()
 
     for idx, spec in enumerate(specs):
@@ -368,13 +520,15 @@ def run_benchmark(
         t0 = time.time()
 
         try:
-            summary = execute_run(spec, runs_dir, verbose=verbose)
+            summary = execute_run(spec, runs_dir, verbose=verbose,
+                                   sim_params=sim_params)
             elapsed = time.time() - t0
 
-            sr   = summary.get("service_rate", 0)
-            mw   = summary.get("mean_wait", 0) or 0
+            sr    = summary.get("service_rate", 0)
+            mw    = summary.get("mean_wait",    0) or 0
+            dh    = summary.get("deadhead_ratio", 0) or 0
             viols = summary.get("violations_total", 0) or 0
-            print(f"svc={sr:.1%}  wait={mw:.1f}  viols={viols}  ({elapsed:.0f}s)")
+            print(f"svc={sr:.1%}  wait={mw:.2f}  dh={dh:.1%}  viols={viols}  ({elapsed:.0f}s)")
 
             label = spec.label
             results.setdefault(label, [])
@@ -382,15 +536,13 @@ def run_benchmark(
 
         except Exception as exc:
             elapsed = time.time() - t0
-            msg = str(exc)
-            print(f"ERROR ({elapsed:.0f}s): {msg[:80]}")
+            print(f"ERROR ({elapsed:.0f}s): {str(exc)[:80]}")
             errors.append((spec, traceback.format_exc()))
             if stop_on_error:
                 raise
 
     print(f"\n{_bar(total, total)}  done\n")
 
-    # Summary of errors
     if errors:
         print(f"  {len(errors)} run(s) failed:")
         for spec, tb in errors:
@@ -403,17 +555,15 @@ def run_benchmark(
     print(f"  Total wall time: {total_elapsed:.0f}s ({total_elapsed/60:.1f} min)")
     print(f"  Successful runs: {total - len(errors)} / {total}")
 
-    # Aggregate
     aggregated = aggregate(results)
 
-    # Write outputs
     agg_json_path = out_root_path / "aggregated.json"
     with open(agg_json_path, "w") as f:
         json.dump({
             "meta": {
-                "seeds":    seeds,
-                "n_seeds":  len(seeds),
-                "policies": [f"{p} ({m})" if m else p for p, m in policies],
+                "seeds":             seeds,
+                "n_seeds":           len(seeds),
+                "policies":          [f"{p} ({m})" if m else p for p, m in policies],
                 "n_runs_total":      total,
                 "n_runs_successful": total - len(errors),
                 "wall_seconds":      round(total_elapsed, 1),
@@ -445,108 +595,100 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  python benchmark.py                            # all policies, 5 seeds
-  python benchmark.py --n-seeds 10              # 10 seeds (42-51)
-  python benchmark.py --seeds 42 100 200 300    # specific seeds
-  python benchmark.py --no-rl                   # greedy policies only
-  python benchmark.py --policies greedy greedy+ts greedy+ga
-  python benchmark.py --out my_results          # custom output dir
-  python benchmark.py --stop-on-error           # halt on first failure
+  python benchmark.py                                    # baseline, all policies, 5 seeds
+  python benchmark.py --n-seeds 3 --fleet-size 4        # fleet sensitivity
+  python benchmark.py --n-seeds 3 --n-requests 280      # demand intensity (low)
+  python benchmark.py --n-seeds 3 --capacity 8          # vehicle capacity sensitivity
+  python benchmark.py --n-seeds 3 --max-wait 15         # tighter service constraint
+  python benchmark.py --n-seeds 3 --demand-profile uniform
+  python benchmark.py --rl-model rl_v4 --n-seeds 5      # v4 only
+  python benchmark.py --no-rl --n-seeds 5               # greedy family only
+  python benchmark.py --out results/fleet_4 --stop-on-error
 """,
     )
-    parser.add_argument(
-        "--seeds", nargs="+", type=int, default=None,
-        help="Explicit seed list (e.g. --seeds 42 43 44 45 46)",
-    )
-    parser.add_argument(
-        "--n-seeds", type=int, default=5,
-        help="Number of seeds starting from 42 (default: 5)",
-    )
-    parser.add_argument(
-        "--policies", nargs="+", default=None,
-        choices=["greedy","greedy+sa","greedy+ts","greedy+ga","greedy+alns",
-                 "rl","rl+sa","rl+ts","rl+ga","rl+alns"],
-        help="Subset of greedy policies to run (RL variants added separately)",
-    )
-    parser.add_argument(
-        "--no-rl", action="store_true",
-        help="Skip all RL policies (no model files required)",
-    )
-    parser.add_argument(
-        "--rl-model", default=None,
-        choices=["rl_tuned", "rl_base", "both"],
-        help="Which RL model(s) to use for RL policies (default: both)",
-    )
-    parser.add_argument(
-        "--out", default="benchmark_results",
-        help="Output directory (default: benchmark_results)",
-    )
-    parser.add_argument(
-        "--stop-on-error", action="store_true",
-        help="Stop immediately on first failed run",
-    )
-    parser.add_argument(
-        "--verbose", action="store_true",
-        help="Pass verbose flag to each simulation run",
-    )
+    # ---- Seeds ----
+    parser.add_argument("--seeds",   nargs="+", type=int, default=None)
+    parser.add_argument("--n-seeds", type=int,  default=5,
+                        help="Seeds 42..(42+n) (default: 5)")
+    # ---- Policy filter ----
+    parser.add_argument("--no-rl",    action="store_true")
+    parser.add_argument("--rl-model", nargs="+", default=None,
+                        choices=["rl_base", "rl_v3", "rl_v4"],
+                        help="Restrict to specific RL model(s). Default: all three.")
+    # ---- Output ----
+    parser.add_argument("--out",          default="benchmark_results")
+    parser.add_argument("--stop-on-error", action="store_true")
+    parser.add_argument("--verbose",       action="store_true")
+    # ---- Sensitivity parameters (override SimulationConfig defaults) ----
+    parser.add_argument("--fleet-size",     type=int,   default=None,
+                        help="Number of vehicles (default: 6)")
+    parser.add_argument("--capacity",       type=int,   default=None,
+                        help="Vehicle passenger capacity (default: 16)")
+    parser.add_argument("--n-requests",     type=int,   default=None,
+                        help="Request cap per episode. For demand sensitivity "
+                             "use --inter-arrival instead and set this to 9999.")
+    parser.add_argument("--inter-arrival",  type=float, default=None,
+                        help="Mean inter-arrival gap in minutes (default: 3.0). "
+                             "This is the correct knob for demand intensity. "
+                             "Use --n-requests 9999 alongside this flag so the "
+                             "cap never binds before the service window closes.")
+    parser.add_argument("--max-wait",       type=float, default=None,
+                        help="Max passenger wait constraint in minutes (default: 30)")
+    parser.add_argument("--ride-factor",    type=float, default=None,
+                        help="Max ride = factor × direct time (default: 2.5)")
+    parser.add_argument("--demand-profile", type=str,   default=None,
+                        choices=["malta", "uniform", "bimodal", "peak"],
+                        help="Temporal demand profile (default: malta)")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    # --- Seeds ---
-    if args.seeds:
-        seeds = args.seeds
-    else:
-        seeds = list(range(42, 42 + args.n_seeds))
+    seeds = args.seeds if args.seeds else list(range(42, 42 + args.n_seeds))
 
-    # --- Greedy policies ---
-    if args.policies:
-        greedy_policies = [(p, None) for p in args.policies]
-    else:
-        greedy_policies = list(_GREEDY_POLICIES)
+    greedy_policies = list(_GREEDY_POLICIES)
 
-    # --- RL policies ---
     if args.no_rl:
         rl_policies = []
     else:
-        # Filter by requested model(s)
-        if args.rl_model == "rl_tuned":
-            rl_policies = [(p, m) for p, m in _RL_POLICIES if m == "rl_tuned"]
-        elif args.rl_model == "rl_base":
-            rl_policies = [(p, m) for p, m in _RL_POLICIES if m == "rl_base"]
-        else:
-            rl_policies = list(_RL_POLICIES)
-
-        # Filter by requested policy names if --policies was given
-        if args.policies:
-            rl_base_names = set(args.policies)
-            rl_policies = [(p, m) for p, m in rl_policies if p in rl_base_names]
+        allowed_models = set(args.rl_model) if args.rl_model else {"rl_base", "rl_v3", "rl_v4"}
+        rl_policies = [(p, m) for p, m in _RL_POLICIES if m in allowed_models]
 
     all_policies = greedy_policies + rl_policies
 
     if not all_policies:
-        print("ERROR: no policies selected. Check --policies and --no-rl flags.")
+        print("ERROR: no policies selected.")
         sys.exit(1)
 
-    print(f"Policies to run ({len(all_policies)}):")
-    for p, m in all_policies:
-        label = f"{p} ({m})" if m else p
-        model_path = MODEL_REGISTRY.get(m) if m else None
-        exists = ""
-        if model_path:
-            exists = "  [OK]" if os.path.exists(model_path) else "  [MISSING]"
-        print(f"  {label}{exists}")
+    # Build sensitivity overrides dict from any non-None sensitivity args
+    _sensitivity_map = {
+        "fleet_size":       args.fleet_size,
+        "vehicle_capacity": args.capacity,
+        "n_requests":       args.n_requests,
+        "inter_arrival":    args.inter_arrival,
+        "max_wait":         args.max_wait,
+        "ride_factor":      args.ride_factor,
+        "demand_profile":   args.demand_profile,
+    }
+    sim_params = {k: v for k, v in _sensitivity_map.items() if v is not None}
 
-    # Warn about missing models
+    print(f"\nPolicies to run ({len(all_policies)}):")
+    for p, m in all_policies:
+        label      = f"{p} ({m})" if m else p
+        model_path = MODEL_REGISTRY.get(m) if m else None
+        status     = ""
+        if model_path:
+            status = "  [OK]" if os.path.exists(model_path) else "  [MISSING — update MODEL_REGISTRY]"
+        print(f"  {label}{status}")
+
     missing = [(p, m) for p, m in all_policies
                if m and not os.path.exists(MODEL_REGISTRY.get(m, ""))]
     if missing:
-        print(f"\nWARNING: {len(missing)} RL model(s) not found.")
+        print(f"\nWARNING: {len(missing)} model file(s) not found.")
+        print("  Update MODEL_REGISTRY paths at the top of benchmark.py.")
         if not args.stop_on_error:
-            print("  Those runs will be skipped (error logged, benchmark continues).")
-        print()
+            print("  Those runs will be skipped (benchmark continues).\n")
 
     run_benchmark(
         policies      = all_policies,
@@ -554,6 +696,7 @@ def main():
         out_root      = args.out,
         verbose       = args.verbose,
         stop_on_error = args.stop_on_error,
+        sim_params    = sim_params if sim_params else None,
     )
 
 

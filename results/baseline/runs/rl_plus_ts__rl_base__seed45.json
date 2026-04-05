@@ -1,0 +1,50 @@
+{
+  "spec": {
+    "policy": "rl+ts",
+    "model_key": "rl_base",
+    "seed": 45,
+    "label": "rl+ts (rl_base)"
+  },
+  "sim_params": {
+    "seed": 45,
+    "policy": "rl+ts",
+    "n_requests": 400
+  },
+  "metrics": {
+    "total_requests": 338,
+    "served": 308,
+    "rejected": 30,
+    "in_progress": 0,
+    "service_rate": 0.9112426035502958,
+    "mean_wait": 9.450718100230207,
+    "p50_wait": 6.384186873968474,
+    "p95_wait": 25.97831128192554,
+    "max_wait": 30.37436964255653,
+    "min_wait": 0.0,
+    "std_wait": 7.792926725714799,
+    "mean_ride": 8.696172091777111,
+    "p95_ride": 17.323276914835606,
+    "mean_detour_ratio": 1.2777637954037504,
+    "p95_detour_ratio": 1.892360070669153,
+    "total_distance": 2784.548734472885,
+    "loaded_distance": 1930.7006473616814,
+    "empty_distance": 853.8480871112009,
+    "deadhead_ratio": 0.30663786793907,
+    "improvements": 234,
+    "mean_latency_ms": 46.69649925457655,
+    "p95_latency_ms": 162.3517632484436,
+    "violations_total": 1,
+    "violations_wait": 1,
+    "violations_ride": 0,
+    "mean_wait_excess": 0.3743696425565304,
+    "mean_ride_excess": null,
+    "_run_wall_seconds": 15.84,
+    "_policy_label": "rl+ts (rl_base)",
+    "_seed": 45,
+    "_sim_params": {
+      "seed": 45,
+      "policy": "rl+ts",
+      "n_requests": 400
+    }
+  }
+}

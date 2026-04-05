@@ -1,13 +1,20 @@
 # metrics.py
-# Structured metrics collection for the simulation.
+# Structured metrics collection for the DARP simulation.
+#
+# New in this version:
+#   - log_distance() now accepts passengers_onboard to split loaded vs empty
+#     (deadhead) distance.  Requires main.py to pass len(vehicle.onboard).
+#   - summary() adds: deadhead_ratio, loaded_distance, empty_distance,
+#     p50_wait, min_wait, max_wait, std_wait (within-run distribution width).
 #
 # Violations are recorded with full detail (kind, req_id, actual value,
 # limit, simulation time) so they can be inspected after a run, not just
 # counted.  This is required for the thesis constraint-violation analysis.
 
 from __future__ import annotations
+import math
 from dataclasses import dataclass, field
-from statistics import mean, quantiles
+from statistics import mean, stdev, quantiles
 from typing import Optional
 
 
@@ -59,6 +66,8 @@ class MetricsCollector:
         self.violations:         list[ViolationRecord]    = []
         self.decision_latencies: list[float]              = []  # ms
         self.total_distance:     float                    = 0.0
+        self.loaded_distance:    float                    = 0.0   # at least 1 passenger aboard
+        self.empty_distance:     float                    = 0.0   # no passengers (deadheading)
         self.improvements:       int                      = 0
 
     # ------------------------------------------------------------------
@@ -83,18 +92,28 @@ class MetricsCollector:
     def log_decision_latency(self, elapsed_seconds: float):
         self.decision_latencies.append(elapsed_seconds * 1000.0)
 
-    def log_distance(self, distance: float):
+    def log_distance(self, distance: float, passengers_onboard: int = 0):
+        """
+        Log distance travelled during one vehicle leg.
+
+        Parameters
+        ----------
+        distance            : travel time proxy (minutes, same units as simulation)
+        passengers_onboard  : number of passengers aboard BEFORE this leg starts.
+                              Pass len(vehicle.onboard) from vehicle_process in main.py.
+                              0 means the vehicle is running empty (deadheading).
+        """
         self.total_distance += distance
+        if passengers_onboard > 0:
+            self.loaded_distance += distance
+        else:
+            self.empty_distance  += distance
 
     def log_improvement(self):
         self.improvements += 1
 
     def log_violation(self, kind: str, req_id: str,
                       value: float, limit: float, t: float):
-        """
-        Record an execution-time constraint violation.
-        kind : "wait" or "ride"
-        """
         self.violations.append(ViolationRecord(kind, req_id, value, limit, t))
 
     # ------------------------------------------------------------------
@@ -105,7 +124,6 @@ class MetricsCollector:
         served   = [r for r in self.records.values()
                     if not r.rejected and r.dropoff_time is not None]
         rejected = [r for r in self.records.values() if r.rejected]
-        # in_progress: assigned but not completed (waiting for pickup OR onboard)
         in_prog  = [r for r in self.records.values()
                     if not r.rejected and r.dropoff_time is None]
         total    = len(self.records)
@@ -122,30 +140,55 @@ class MetricsCollector:
         wait_viols = [v for v in self.violations if v.kind == "wait"]
         ride_viols = [v for v in self.violations if v.kind == "ride"]
 
+        # Deadhead ratio — fraction of total distance driven without passengers.
+        # 0.0 = perfectly loaded at all times; 1.0 = never carried anyone.
+        dh_ratio = (
+            self.empty_distance / self.total_distance
+            if self.total_distance > 0 else None
+        )
+
+        # Within-run wait time standard deviation — measures equity across
+        # passengers in a single episode (distinct from cross-seed robustness).
+        wait_std = stdev(wait_times) if len(wait_times) >= 2 else 0.0
+
         return {
+            # ---- Demand ----
             "total_requests":      total,
             "served":              len(served),
             "rejected":            len(rejected),
             "in_progress":         len(in_prog),
             "service_rate":        len(served) / total if total else 0.0,
 
-            "mean_wait":           mean(wait_times)       if wait_times  else None,
-            "p95_wait":            pct(wait_times,  95)   if wait_times  else None,
+            # ---- Wait time (passenger comfort) ----
+            "mean_wait":           mean(wait_times)      if wait_times else None,
+            "p50_wait":            pct(wait_times,  50)  if wait_times else None,
+            "p95_wait":            pct(wait_times,  95)  if wait_times else None,
+            "max_wait":            max(wait_times)       if wait_times else None,
+            "min_wait":            min(wait_times)       if wait_times else None,
+            "std_wait":            wait_std,              # within-run equity
 
-            "mean_ride":           mean(ride_times)       if ride_times  else None,
-            "p95_ride":            pct(ride_times,  95)   if ride_times  else None,
+            # ---- Ride time ----
+            "mean_ride":           mean(ride_times)      if ride_times else None,
+            "p95_ride":            pct(ride_times,  95)  if ride_times else None,
 
-            "mean_detour_ratio":   mean(detour_ratios)    if detour_ratios else None,
-            "p95_detour_ratio":    pct(detour_ratios, 95) if detour_ratios else None,
+            # ---- Detour factor (actual_ride / direct) ----
+            "mean_detour_ratio":   mean(detour_ratios)   if detour_ratios else None,
+            "p95_detour_ratio":    pct(detour_ratios, 95)if detour_ratios else None,
 
+            # ---- Fleet efficiency ----
             "total_distance":      self.total_distance,
-            "improvements":        self.improvements,
+            "loaded_distance":     self.loaded_distance,
+            "empty_distance":      self.empty_distance,
+            "deadhead_ratio":      dh_ratio,              # empty / total
 
+            # ---- Algorithm ----
+            "improvements":        self.improvements,
             "mean_latency_ms":     mean(self.decision_latencies)
                                    if self.decision_latencies else None,
             "p95_latency_ms":      pct(self.decision_latencies, 95)
                                    if self.decision_latencies else None,
 
+            # ---- Constraint compliance ----
             "violations_total":    len(self.violations),
             "violations_wait":     len(wait_viols),
             "violations_ride":     len(ride_viols),
@@ -157,32 +200,37 @@ class MetricsCollector:
 
     def print_summary(self):
         s = self.summary()
-        print("\n" + "=" * 50)
+        print("\n" + "=" * 55)
         print("SIMULATION SUMMARY")
-        print("=" * 50)
-        parts = [f"{s['served']} served",
-                 f"{s['rejected']} rejected"]
+        print("=" * 55)
+        parts = [f"{s['served']} served", f"{s['rejected']} rejected"]
         if s['in_progress'] > 0:
             parts.append(f"{s['in_progress']} in-progress")
         print(f"  Requests : {' / '.join(parts)} / "
               f"{s['total_requests']} total  ({s['service_rate']:.1%})")
         print(f"  Wait time: mean={_fmt(s['mean_wait'])}  "
-              f"p95={_fmt(s['p95_wait'])} min")
+              f"p50={_fmt(s['p50_wait'])}  "
+              f"p95={_fmt(s['p95_wait'])}  "
+              f"max={_fmt(s['max_wait'])}  "
+              f"σ={_fmt(s['std_wait'])} min")
         print(f"  Ride time: mean={_fmt(s['mean_ride'])}  "
               f"p95={_fmt(s['p95_ride'])} min")
         print(f"  Detour   : mean={_fmt(s['mean_detour_ratio'],'.2f')}x  "
               f"p95={_fmt(s['p95_detour_ratio'],'.2f')}x")
-        print(f"  Distance : {s['total_distance']:.2f} (total km proxy)")
+        print(f"  Distance : total={s['total_distance']:.1f}  "
+              f"loaded={s['loaded_distance']:.1f}  "
+              f"empty={s['empty_distance']:.1f}  "
+              f"deadhead={_fmt(s['deadhead_ratio'],'.1%')}")
         print(f"  Latency  : mean={_fmt(s['mean_latency_ms'])} ms  "
               f"p95={_fmt(s['p95_latency_ms'])} ms")
-        print(f"  Route improvements: {s['improvements']} successful route updates")
+        print(f"  Improvements: {s['improvements']} successful route updates")
         print(f"  Violations: {s['violations_total']} total  "
               f"({s['violations_wait']} wait, {s['violations_ride']} ride)")
         if s['violations_wait']:
             print(f"    Mean wait excess : {_fmt(s['mean_wait_excess'])} min")
         if s['violations_ride']:
             print(f"    Mean ride excess : {_fmt(s['mean_ride_excess'])} min")
-        print("=" * 50)
+        print("=" * 55)
 
 
 def _fmt(val, fmt=".1f") -> str:

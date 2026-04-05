@@ -29,7 +29,8 @@ from metrics import MetricsCollector
 # Known model registry — quick labels for thesis runs
 # ===================================================================
 MODEL_REGISTRY = {
-    "rl_tuned":   "rl_outputs/run_008/model.zip",
+    "rl_v3":   "rl_outputs/run_008/model.zip",
+    "rl_v4":   "rl_outputs/run_009/model_final.zip",
     "rl_base":    "rl_outputs/run_006/model.zip",
 }
 
@@ -104,7 +105,7 @@ def vehicle_process(
         else:
             actual_travel = planned_travel
 
-        metrics.log_distance(actual_travel)
+        metrics.log_distance(actual_travel, passengers_onboard=len(vehicle.onboard))
         yield env.timeout(actual_travel)
 
         vehicle.location               = stop.node
