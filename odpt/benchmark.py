@@ -66,6 +66,9 @@ MODEL_REGISTRY = {
     # model_final.zip is the cleaner reference.
     # !! UPDATE THIS PATH to your v4 run directory.
     "rl_v4":   "rl_outputs/run_009/model_final.zip",
+
+    # v5 tune
+    "rl_v5":   "rl_outputs/run_011/checkpoints/best/model.zip",
 }
 
 
@@ -88,22 +91,28 @@ _RL_POLICIES = [
     ("rl",     "rl_base"),
     ("rl",     "rl_v3"),
     ("rl",     "rl_v4"),
+    ("rl",     "rl_v5"),
     # ---- RL + Simulated Annealing ----
     ("rl+sa",  "rl_base"),
     ("rl+sa",  "rl_v3"),
     ("rl+sa",  "rl_v4"),
+    ("rl+sa",  "rl_v5"),
+
     # ---- RL + Tabu Search (primary hybrid) ----
     ("rl+ts",  "rl_base"),
     ("rl+ts",  "rl_v3"),
     ("rl+ts",  "rl_v4"),
+    ("rl+ts",  "rl_v5"),
     # ---- RL + Genetic Algorithm ----
     ("rl+ga",  "rl_base"),
     ("rl+ga",  "rl_v3"),
     ("rl+ga",  "rl_v4"),
+    ("rl+ga",  "rl_v5"),
     # ---- RL + ALNS ----
     ("rl+alns","rl_base"),
     ("rl+alns","rl_v3"),
     ("rl+alns","rl_v4"),
+    ("rl+alns","rl_v5"),
 ]
 
 # All metric keys produced by metrics.MetricsCollector.summary().
@@ -613,7 +622,7 @@ Examples:
     # ---- Policy filter ----
     parser.add_argument("--no-rl",    action="store_true")
     parser.add_argument("--rl-model", nargs="+", default=None,
-                        choices=["rl_base", "rl_v3", "rl_v4"],
+                        choices=["rl_base", "rl_v3", "rl_v4", "rl_v5"],
                         help="Restrict to specific RL model(s). Default: all three.")
     # ---- Output ----
     parser.add_argument("--out",          default="benchmark_results")
