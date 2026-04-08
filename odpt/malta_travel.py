@@ -40,23 +40,23 @@ for _s in _STOPS:
     STOP_COORDS[_i]    = (_s["lat"], _s["lon"])
     STOP_NAMES[_i]     = _s["name"]
 
-
 def congestion_factor(t_minutes: float) -> float:
     """
-    Speed multiplier at simulation time t (minutes from 07:00).
-
-      07:00-09:00  t=0-120    morning peak      x 0.65
-      09:00-15:00  t=120-480  off-peak          x 1.00
-      15:00-17:00  t=480-600  afternoon peak    x 0.70
-      17:00-18:00  t=600-660  evening wind-down x 0.85
+    Speed multiplier for Malta traffic. Simulation t=0 = 05:30.
+ 
+      05:30-06:30  t=0-60    early morning          x 0.90
+      06:30-09:30  t=60-240  morning peak (gridlock) x 0.45  (school + commute)
+      09:30-15:30  t=240-600 mid-day grind           x 0.65  (no true off-peak in Malta)
+      15:30-18:30  t=600-780 afternoon/evening peak  x 0.50  (school pickups + work finish)
+      18:30-21:00  t=780-930 evening wind-down       x 0.75  (Sliema/St Julian's still busy; leisure)
+      21:00+       t=930+    night flow              x 0.95
     """
-    if t_minutes < 120:
-        return 0.65
-    if t_minutes < 480:
-        return 1.00
-    if t_minutes < 600:
-        return 0.70
-    return 0.85
+    if t_minutes < 60:   return 0.90
+    if t_minutes < 240:  return 0.45
+    if t_minutes < 600:  return 0.65
+    if t_minutes < 780:  return 0.50
+    if t_minutes < 930:  return 0.75
+    return 0.95
 
 
 def make_travel_fn(coords: dict = None, speed_kmh: float = None):

@@ -38,13 +38,16 @@ MAX_VEHICLES = 8          # padded (fleet <= 6, room for sensitivity)
 OBS_PER_VEHICLE = 8       # see _encode_state
 OBS_REQUEST = 6
 
-# Anticipatory features flag — set to True for v4 ablation study.
-# When False: 4 global features (74 dims total) — v1/v3 baseline.
-# When True:  8 global features (78 dims total) — v2/v4 with demand forecast.
+# Anticipatory features flag — overridden per-run by benchmark.py execute_run().
+# When False: 4 global features (74 dims total) — baseline models (rl_v4 etc.)
+# When True:  8 global features (78 dims total) — rl_v3ant only.
 USE_ANTICIPATORY_FEATURES = False
 
-OBS_GLOBAL = 8 if USE_ANTICIPATORY_FEATURES else 4
-OBS_SIZE = MAX_VEHICLES * OBS_PER_VEHICLE + OBS_REQUEST + OBS_GLOBAL
+
+def get_obs_size() -> int:
+    """Compute obs size dynamically so benchmark per-run flag overrides work."""
+    global_feats = 8 if USE_ANTICIPATORY_FEATURES else 4
+    return MAX_VEHICLES * OBS_PER_VEHICLE + OBS_REQUEST + global_feats
 
 
 class DARPEnv(gym.Env):
@@ -124,7 +127,7 @@ class DARPEnv(gym.Env):
         self.n_actions = self.cfg.fleet_size + 1  # 0=reject, 1..K=vehicles
         self.action_space = spaces.Discrete(self.n_actions)
         self.observation_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(OBS_SIZE,), dtype=np.float32,
+            low=-1.0, high=1.0, shape=(get_obs_size(),), dtype=np.float32,
         )
 
         # Internal state
@@ -444,7 +447,7 @@ class DARPEnv(gym.Env):
     # ------------------------------------------------------------------
 
     def _encode_state(self) -> np.ndarray:
-        obs = np.zeros(OBS_SIZE, dtype=np.float32)
+        obs = np.zeros(get_obs_size(), dtype=np.float32)
 
         lon_min, lon_max = 14.35, 14.55
         lat_min, lat_max = 35.85, 35.95

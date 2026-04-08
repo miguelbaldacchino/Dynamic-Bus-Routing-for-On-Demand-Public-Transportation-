@@ -19,7 +19,9 @@
 #   python benchmark.py --n-seeds 10
 #   python benchmark.py --seeds 42 43 44 45 46
 #   python benchmark.py --no-rl                  # greedy family only
-#   python benchmark.py --rl-model rl_v4         # only v4 RL policies
+#   python benchmark.py --no-greedy              # RL models only (all five)
+#   python benchmark.py --rl-model rl_v4         # only v4 RL policies (+greedy)
+#   python benchmark.py --rl-model rl_v4 --no-greedy  # only v4 RL, no greedy
 #   python benchmark.py --rl-model rl_v4 rl_base # subset of RL models
 #   python benchmark.py --out thesis_benchmark
 #   python benchmark.py --stop-on-error
@@ -59,6 +61,9 @@ MODEL_REGISTRY = {
     # Update this path to your best v3 training run.
     "rl_v3":   "rl_outputs/run_008/model.zip",
 
+    # v3 tune — anticipatory features
+    "rl_v3ant": "rl_outputs/run_012/checkpoints/best/model.zip",
+
     # v4 tune — TS-initialiser model, trained via rl_train_from_tune.py.
     # Use model_final.zip — confirmed from tfevents that the best callback
     # score (8.083) was recorded at step 999,960 = the final step, meaning
@@ -90,27 +95,32 @@ _RL_POLICIES = [
     # ---- Standalone (no post-processing) ----
     ("rl",     "rl_base"),
     ("rl",     "rl_v3"),
+    ("rl",     "rl_v3ant"),
     ("rl",     "rl_v4"),
     ("rl",     "rl_v5"),
     # ---- RL + Simulated Annealing ----
     ("rl+sa",  "rl_base"),
     ("rl+sa",  "rl_v3"),
+    ("rl+sa",  "rl_v3ant"),
     ("rl+sa",  "rl_v4"),
     ("rl+sa",  "rl_v5"),
 
     # ---- RL + Tabu Search (primary hybrid) ----
     ("rl+ts",  "rl_base"),
     ("rl+ts",  "rl_v3"),
+    ("rl+ts",  "rl_v3ant"),
     ("rl+ts",  "rl_v4"),
     ("rl+ts",  "rl_v5"),
     # ---- RL + Genetic Algorithm ----
     ("rl+ga",  "rl_base"),
     ("rl+ga",  "rl_v3"),
+    ("rl+ga",  "rl_v3ant"),
     ("rl+ga",  "rl_v4"),
     ("rl+ga",  "rl_v5"),
     # ---- RL + ALNS ----
     ("rl+alns","rl_base"),
     ("rl+alns","rl_v3"),
+    ("rl+alns","rl_v3ant"),
     ("rl+alns","rl_v4"),
     ("rl+alns","rl_v5"),
 ]
@@ -193,6 +203,10 @@ def execute_run(spec: RunSpec, out_dir: Path,
     """
     from config import SimulationConfig
     from main import main as sim_main
+    import rl_env
+
+    # Only rl_v3ant was trained with anticipatory features — all others use False.
+    rl_env.USE_ANTICIPATORY_FEATURES = (spec.model_key == "rl_v3ant")
 
     model_path = MODEL_REGISTRY.get(spec.model_key) if spec.model_key else None
 
@@ -223,7 +237,7 @@ def execute_run(spec: RunSpec, out_dir: Path,
     summary["_sim_params"]       = base   # record what was varied
 
     run_path = out_dir / f"{spec.filename_stem}.json"
-    with open(run_path, "w") as f:
+    with open(run_path, "w", encoding="utf-8") as f:
         json.dump({
             "spec":       {"policy": spec.policy,
                            "model_key": spec.model_key,
@@ -300,7 +314,7 @@ def write_csv(aggregated: dict, path: Path) -> None:
         return
 
     fieldnames = list(rows[0].keys())
-    with open(path, "w", newline="") as f:
+    with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
@@ -475,15 +489,22 @@ def write_report(aggregated: dict, seeds: list[int], path: Path) -> None:
         ruler(110),
     ]
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
 # ---------------------------------------------------------------------------
-# Progress printer
+# Progress bar (tqdm with plain fallback)
 # ---------------------------------------------------------------------------
 
+try:
+    from tqdm import tqdm as _tqdm
+    _HAS_TQDM = True
+except ImportError:
+    _HAS_TQDM = False
+
 def _bar(done: int, total: int, width: int = 30) -> str:
+    """Fallback ASCII bar (used only when tqdm is unavailable)."""
     filled = int(width * done / total) if total else 0
     return f"[{'#' * filled}{'.' * (width - filled)}] {done}/{total}"
 
@@ -524,8 +545,17 @@ def run_benchmark(
     errors:  list[tuple[RunSpec, str]] = []
     t_total_start = time.time()
 
-    for idx, spec in enumerate(specs):
-        print(f"{_bar(idx, total)}  {spec.label}  seed={spec.seed}", end="  ", flush=True)
+    iterator = (
+        _tqdm(specs, desc="Benchmark", unit="run", dynamic_ncols=True)
+        if _HAS_TQDM else specs
+    )
+
+    for idx, spec in enumerate(iterator):
+        if _HAS_TQDM:
+            iterator.set_description(f"{spec.label}  seed={spec.seed}")
+        else:
+            print(f"{_bar(idx, total)}  {spec.label}  seed={spec.seed}", end="  ", flush=True)
+
         t0 = time.time()
 
         try:
@@ -537,7 +567,12 @@ def run_benchmark(
             mw    = summary.get("mean_wait",    0) or 0
             dh    = summary.get("deadhead_ratio", 0) or 0
             viols = summary.get("violations_total", 0) or 0
-            print(f"svc={sr:.1%}  wait={mw:.2f}  dh={dh:.1%}  viols={viols}  ({elapsed:.0f}s)")
+
+            result_str = f"svc={sr:.1%}  wait={mw:.2f}  dh={dh:.1%}  viols={viols}  ({elapsed:.0f}s)"
+            if _HAS_TQDM:
+                iterator.set_postfix_str(result_str)
+            else:
+                print(result_str)
 
             label = spec.label
             results.setdefault(label, [])
@@ -545,7 +580,12 @@ def run_benchmark(
 
         except Exception as exc:
             elapsed = time.time() - t0
-            print(f"ERROR ({elapsed:.0f}s): {str(exc)[:80]}")
+            err_str = f"ERROR ({elapsed:.0f}s): {str(exc)[:80]}"
+            if _HAS_TQDM:
+                iterator.write(f"  x {spec.label} seed={spec.seed} -- {err_str}")
+                iterator.set_postfix_str(err_str)
+            else:
+                print(err_str)
             errors.append((spec, traceback.format_exc()))
             if stop_on_error:
                 raise
@@ -567,7 +607,7 @@ def run_benchmark(
     aggregated = aggregate(results)
 
     agg_json_path = out_root_path / "aggregated.json"
-    with open(agg_json_path, "w") as f:
+    with open(agg_json_path, "w", encoding="utf-8") as f:
         json.dump({
             "meta": {
                 "seeds":             seeds,
@@ -610,8 +650,10 @@ Examples:
   python benchmark.py --n-seeds 3 --capacity 8          # vehicle capacity sensitivity
   python benchmark.py --n-seeds 3 --max-wait 15         # tighter service constraint
   python benchmark.py --n-seeds 3 --demand-profile uniform
-  python benchmark.py --rl-model rl_v4 --n-seeds 5      # v4 only
+  python benchmark.py --rl-model rl_v4 --n-seeds 5      # v4 + greedy, 5 seeds
+  python benchmark.py --rl-model rl_v4 --no-greedy --n-seeds 5  # v4 only, no greedy
   python benchmark.py --no-rl --n-seeds 5               # greedy family only
+  python benchmark.py --no-greedy --n-seeds 5           # all RL models, no greedy
   python benchmark.py --out results/fleet_4 --stop-on-error
 """,
     )
@@ -620,10 +662,13 @@ Examples:
     parser.add_argument("--n-seeds", type=int,  default=5,
                         help="Seeds 42..(42+n) (default: 5)")
     # ---- Policy filter ----
-    parser.add_argument("--no-rl",    action="store_true")
+    parser.add_argument("--no-rl",     action="store_true",
+                        help="Exclude all RL policies; run greedy family only.")
+    parser.add_argument("--no-greedy", action="store_true",
+                        help="Exclude all greedy policies; run RL models only.")
     parser.add_argument("--rl-model", nargs="+", default=None,
-                        choices=["rl_base", "rl_v3", "rl_v4", "rl_v5"],
-                        help="Restrict to specific RL model(s). Default: all three.")
+                        choices=["rl_base", "rl_v3", "rl_v3ant", "rl_v4", "rl_v5"],
+                        help="Restrict to specific RL model(s). Default: all five.")
     # ---- Output ----
     parser.add_argument("--out",          default="benchmark_results")
     parser.add_argument("--stop-on-error", action="store_true")
@@ -656,12 +701,12 @@ def main():
 
     seeds = args.seeds if args.seeds else list(range(42, 42 + args.n_seeds))
 
-    greedy_policies = list(_GREEDY_POLICIES)
+    greedy_policies = [] if args.no_greedy else list(_GREEDY_POLICIES)
 
     if args.no_rl:
         rl_policies = []
     else:
-        allowed_models = set(args.rl_model) if args.rl_model else {"rl_base", "rl_v3", "rl_v4"}
+        allowed_models = set(args.rl_model) if args.rl_model else set(MODEL_REGISTRY.keys())
         rl_policies = [(p, m) for p, m in _RL_POLICIES if m in allowed_models]
 
     all_policies = greedy_policies + rl_policies

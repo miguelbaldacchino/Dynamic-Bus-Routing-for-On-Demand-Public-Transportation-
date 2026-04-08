@@ -1,0 +1,82 @@
+==============================================================================================================
+BENCHMARK RESULTS — DARP SIMULATION (Malta On Demand)
+Seeds: [42, 43, 44, 45, 46]   n_seeds=5
+Values shown as mean ± std_cross_seed unless noted.
+==============================================================================================================
+
+TABLE 1 — SERVICE QUALITY  (wait/ride in minutes)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Policy                          svc rate     wait mean      wait p50      wait p95      wait max      wait min        wait σ     ride mean      ride p95   detour mean    detour p95      rejected
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+greedy                       76.3% ±7.4%   14.50 ±1.30         11.90         30.49         38.13          0.00          9.58         13.27         32.23         1.337         2.153    85.2 ±31.4
+greedy+sa                    78.4% ±5.8%   14.51 ±1.16         12.85         29.91         36.28          0.00          9.37         13.50         32.49         1.345         2.174    77.6 ±25.8
+greedy+ts                    79.3% ±6.7%   13.60 ±1.18         10.96         29.93         35.75          0.00          9.39         13.64         31.59         1.355         2.166    74.8 ±28.7
+greedy+ga                    79.2% ±7.0%   13.65 ±1.03         11.01         30.48         36.15          0.00          9.46         13.50         32.42         1.345         2.139    75.0 ±30.0
+greedy+alns                  80.9% ±6.1%   13.36 ±0.93         11.23         29.30         35.46          0.00          8.85         13.18         30.54         1.323         2.099    69.0 ±26.7
+rl (rl_v3ant)                76.5% ±6.8%   16.47 ±1.20         15.45         31.43         38.50          0.03          9.62         14.15         35.12         1.398         2.249    84.8 ±30.2
+rl+sa (rl_v3ant)             77.5% ±6.5%   15.26 ±0.77         13.95         29.97         34.82          0.00          9.20         13.45         32.92         1.351         2.183    81.0 ±28.3
+rl+ts (rl_v3ant)             79.1% ±5.9%   13.28 ±0.90         10.42         29.35         34.89          0.00          9.16         13.38         31.66         1.336         2.119    75.2 ±25.9
+rl+ga (rl_v3ant)             78.5% ±6.4%   13.60 ±1.22         11.00         29.76         35.80          0.00          9.33         13.61         32.55         1.357         2.167    77.4 ±27.1
+rl+alns (rl_v3ant)           80.1% ±5.9%   14.41 ±0.90         12.33         29.36         35.01          0.15          8.64         13.44         31.27         1.342         2.143    71.6 ±25.4
+
+  std_cross_seed shown for mean_wait, service_rate, rejected only.
+  wait σ = within-run standard deviation across passengers (equity metric).
+  wait min = best-case passenger experience; detour p95 = tail comfort bound.
+
+TABLE 2 — OPERATIONAL EFFICIENCY
+----------------------------------------------------------------------------------------------------------------------------
+Policy                         total VKT    loaded VKT     empty VKT    deadhead %  improvements   lat mean ms    lat p95 ms
+----------------------------------------------------------------------------------------------------------------------------
+greedy                            3873.4        2529.5        1343.9         34.7%           0.0           0.4             1
+greedy+sa                         3849.7        2572.5        1277.2         33.1%          36.8          56.7           233
+greedy+ts                         3612.7        2544.3        1068.4         29.5%          82.6          26.9           107
+greedy+ga                         3607.4        2510.1        1097.2         30.4%          90.0         146.5           639
+greedy+alns                       3791.4        2549.6        1241.8         32.7%          70.0          75.5           297
+rl (rl_v3ant)                     4067.4        2578.5        1489.0         36.6%           0.0           4.6             6
+rl+sa (rl_v3ant)                  3957.6        2538.6        1419.0         35.9%          82.2          61.4           224
+rl+ts (rl_v3ant)                  3624.1        2526.8        1097.4         30.2%         168.0          29.4           109
+rl+ga (rl_v3ant)                  3627.0        2536.8        1090.2         30.0%         163.6         148.8           620
+rl+alns (rl_v3ant)                3972.1        2539.7        1432.4         36.0%         101.4          76.1           285
+
+  VKT = vehicle-kilometres travelled (minutes proxy — same units as simulation).
+  Deadhead = fraction of total distance driven with no passengers aboard.
+  Improvements = successful metaheuristic route-improvement steps.
+  Latency = full dispatch decision epoch (insertion + improvement pass).
+
+TABLE 3 — WORST-CASE SEED ANALYSIS  (mean_wait per seed, minutes)
+----------------------------------------------------------------------------------------------------
+Policy                             s42         s43         s44         s45         s46       WORST
+--------------------------------------------------------------------------------------------------
+greedy                           13.78       16.60       14.02       13.27       14.84       16.60
+greedy+sa                        13.83       16.02       13.32       13.92       15.48       16.02
+greedy+ts                        12.99       14.68       12.64       12.63       15.08       15.08
+greedy+ga                        13.22       14.53       12.68       12.83       14.95       14.95
+greedy+alns                      13.39       14.47       12.40       12.49       14.08       14.47
+rl (rl_v3ant)                    17.09       18.13       16.47       15.20       15.49       18.13
+rl+sa (rl_v3ant)                 14.65       16.46       14.63       14.97       15.57       16.46
+rl+ts (rl_v3ant)                 12.77       13.85       12.07       13.35       14.37       14.37
+rl+ga (rl_v3ant)                 12.58       15.09       12.64       12.93       14.76       15.09
+rl+alns (rl_v3ant)               13.99       15.31       13.37       13.98       15.41       15.41
+
+  WORST = highest mean_wait observed across any single seed.
+  A robust policy shows low variance across this row.
+
+TABLE 4 — CONSTRAINT COMPLIANCE
+------------------------------------------------------------------------------------------------
+Policy                        violations    wait viols    ride viols   wait excess   ride excess
+------------------------------------------------------------------------------------------------
+greedy                                18            16             1          2.35          1.80
+greedy+sa                             16            15             1          1.84          2.12
+greedy+ts                             16            14             1          1.54          1.21
+greedy+ga                             18            17             1          1.86          1.19
+greedy+alns                           10             9             1          1.67          0.79
+rl (rl_v3ant)                         26            22             3          2.16          1.74
+rl+sa (rl_v3ant)                      16            15             1          1.86          0.95
+rl+ts (rl_v3ant)                      13            12             1          1.82          0.92
+rl+ga (rl_v3ant)                      13            12             1          1.91          1.06
+rl+alns (rl_v3ant)                    11            11             0          1.79          0.69
+
+  Violations = execution-time hard constraint breaches (target: 0).
+  Wait/ride excess = mean overshoot in minutes when a violation occurs.
+
+==============================================================================================================

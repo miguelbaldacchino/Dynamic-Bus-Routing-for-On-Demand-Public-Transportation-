@@ -324,6 +324,18 @@ def _rl_insert(
         print(f"  -> RL rejected {request.id} (no feasible vehicle)")
         return False
 
+    # Pad mask to model's trained action space size if fleet size differs.
+    # The model was trained with fleet_size=6 (7 actions). When running a
+    # sensitivity scenario with fewer/more vehicles, pad with zeros (masked out).
+    model_n_actions = model.action_space.n
+    if len(mask) < model_n_actions:
+        mask = np.concatenate([mask, np.zeros(model_n_actions - len(mask), dtype=np.int8)])
+    elif len(mask) > model_n_actions:
+        # More vehicles than trained on — truncate to model capacity
+        mask = mask[:model_n_actions]
+        vehicle_ids = vehicle_ids[:model_n_actions - 1]
+        n_vehicles = len(vehicle_ids)
+
     # Encode state and get RL action
     obs = _encode_live_state(
         request, vehicles, vehicle_ids, current_time, system_state,
@@ -719,12 +731,12 @@ def _encode_live_state(
 ):
     """Encode live SimPy state into the RL observation vector."""
     import numpy as np
-    from rl_env import (OBS_SIZE, OBS_PER_VEHICLE, OBS_REQUEST,
-                        OBS_GLOBAL, MAX_VEHICLES, USE_ANTICIPATORY_FEATURES)
+    from rl_env import (get_obs_size, OBS_PER_VEHICLE, OBS_REQUEST,
+                        MAX_VEHICLES, USE_ANTICIPATORY_FEATURES)
     from malta_travel import DEFAULT_COORDS, congestion_factor
     from config import arrival_rate
 
-    obs = np.zeros(OBS_SIZE, dtype=np.float32)
+    obs = np.zeros(get_obs_size(), dtype=np.float32)
 
     lon_min, lon_max = 14.35, 14.55
     lat_min, lat_max = 35.85, 35.95
