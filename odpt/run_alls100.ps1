@@ -1,14 +1,13 @@
-# run_missing.ps1 — fill in missing RL runs
-# fleet_8     : needs all RL models (greedy already done)
-# all others  : need rl_base, rl_v3, rl_v4, rl_v5 (greedy + rl_v3ant already done)
+# run_missing.ps1
+# Rename your existing results folders before running this.
+# e.g. results\fleet_4 -> results\fleet_4_old
+
 
 # --- fleet_8: all RL models ---
 python odpt\benchmark.py --n-seeds 3 --fleet-size 8 --rl-model rl_v3ant rl_base rl_v3 rl_v4 rl_v5 --no-greedy --out results/fleet_8
 
-# --- all other scenarios: remaining RL models only ---
+# --- all other scenarios: rl_base, rl_v3, rl_v4, rl_v5 only ---
 python odpt\benchmark.py --n-seeds 5 --rl-model rl_base rl_v3 rl_v4 rl_v5 --no-greedy --out results/baseline
-
-python odpt\benchmark.py --n-seeds 3 --fleet-size 4 --rl-model rl_base rl_v3 rl_v4 rl_v5 --no-greedy --out results/fleet_4
 
 python odpt\benchmark.py --n-seeds 3 --capacity 8 --rl-model rl_base rl_v3 rl_v4 rl_v5 --no-greedy --out results/capacity_8
 
