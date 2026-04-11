@@ -74,6 +74,9 @@ MODEL_REGISTRY = {
 
     # v5 tune
     "rl_v5":   "rl_outputs/run_011/checkpoints/best/model.zip",
+
+    # v3 new — new congestion factors v3 model
+    "rl_v3new": "rl_outputs/run_013/model.zip"
 }
 
 
@@ -98,31 +101,35 @@ _RL_POLICIES = [
     ("rl",     "rl_v3ant"),
     ("rl",     "rl_v4"),
     ("rl",     "rl_v5"),
+    ("rl",     "rl_v3new"),
     # ---- RL + Simulated Annealing ----
     ("rl+sa",  "rl_base"),
     ("rl+sa",  "rl_v3"),
     ("rl+sa",  "rl_v3ant"),
     ("rl+sa",  "rl_v4"),
     ("rl+sa",  "rl_v5"),
-
+    ("rl+sa",  "rl_v3new"),
     # ---- RL + Tabu Search (primary hybrid) ----
     ("rl+ts",  "rl_base"),
     ("rl+ts",  "rl_v3"),
     ("rl+ts",  "rl_v3ant"),
     ("rl+ts",  "rl_v4"),
     ("rl+ts",  "rl_v5"),
+    ("rl+ts",  "rl_v3new"),
     # ---- RL + Genetic Algorithm ----
     ("rl+ga",  "rl_base"),
     ("rl+ga",  "rl_v3"),
     ("rl+ga",  "rl_v3ant"),
     ("rl+ga",  "rl_v4"),
     ("rl+ga",  "rl_v5"),
+    ("rl+ga",  "rl_v3new"),
     # ---- RL + ALNS ----
     ("rl+alns","rl_base"),
     ("rl+alns","rl_v3"),
     ("rl+alns","rl_v3ant"),
     ("rl+alns","rl_v4"),
     ("rl+alns","rl_v5"),
+    ("rl+alns","rl_v3new"),
 ]
 
 # All metric keys produced by metrics.MetricsCollector.summary().
@@ -667,7 +674,7 @@ Examples:
     parser.add_argument("--no-greedy", action="store_true",
                         help="Exclude all greedy policies; run RL models only.")
     parser.add_argument("--rl-model", nargs="+", default=None,
-                        choices=["rl_base", "rl_v3", "rl_v3ant", "rl_v4", "rl_v5"],
+                        choices=["rl_base", "rl_v3", "rl_v3ant", "rl_v4", "rl_v5", "rl_v3new"],
                         help="Restrict to specific RL model(s). Default: all five.")
     # ---- Output ----
     parser.add_argument("--out",          default="benchmark_results")

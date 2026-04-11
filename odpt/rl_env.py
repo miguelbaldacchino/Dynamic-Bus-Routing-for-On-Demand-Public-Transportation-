@@ -41,7 +41,7 @@ OBS_REQUEST = 6
 # Anticipatory features flag — overridden per-run by benchmark.py execute_run().
 # When False: 4 global features (74 dims total) — baseline models (rl_v4 etc.)
 # When True:  8 global features (78 dims total) — rl_v3ant only.
-USE_ANTICIPATORY_FEATURES = False
+USE_ANTICIPATORY_FEATURES = True
 
 
 def get_obs_size() -> int:

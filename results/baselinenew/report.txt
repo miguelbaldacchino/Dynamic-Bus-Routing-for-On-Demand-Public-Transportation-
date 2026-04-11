@@ -1,0 +1,62 @@
+==============================================================================================================
+BENCHMARK RESULTS — DARP SIMULATION (Malta On Demand)
+Seeds: [42, 43, 44, 45, 46]   n_seeds=5
+Values shown as mean ± std_cross_seed unless noted.
+==============================================================================================================
+
+TABLE 1 — SERVICE QUALITY  (wait/ride in minutes)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Policy                          svc rate     wait mean      wait p50      wait p95      wait max      wait min        wait σ     ride mean      ride p95   detour mean    detour p95      rejected
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+rl (rl_v3new)                76.2% ±6.5%   16.98 ±0.62         16.56         31.21         35.08          0.23          9.43         13.91         34.52         1.387         2.246    85.6 ±29.2
+rl+sa (rl_v3new)             77.5% ±7.0%   15.92 ±0.60         14.49         30.59         35.65          0.00          9.25         13.28         31.56         1.330         2.144    81.2 ±29.9
+rl+ts (rl_v3new)             79.6% ±7.1%   13.55 ±1.20         10.88         29.78         35.85          0.00          9.27         13.63         32.39         1.347         2.165    73.6 ±29.9
+rl+ga (rl_v3new)             78.4% ±6.9%   13.25 ±1.17         10.60         29.66         35.08          0.00          9.20         13.42         32.42         1.345         2.150    78.0 ±29.5
+rl+alns (rl_v3new)           80.0% ±7.3%   14.36 ±0.86         12.49         29.65         35.11          0.24          8.56         13.32         31.80         1.330         2.100    72.2 ±30.7
+
+  std_cross_seed shown for mean_wait, service_rate, rejected only.
+  wait σ = within-run standard deviation across passengers (equity metric).
+  wait min = best-case passenger experience; detour p95 = tail comfort bound.
+
+TABLE 2 — OPERATIONAL EFFICIENCY
+----------------------------------------------------------------------------------------------------------------------------
+Policy                         total VKT    loaded VKT     empty VKT    deadhead %  improvements   lat mean ms    lat p95 ms
+----------------------------------------------------------------------------------------------------------------------------
+rl (rl_v3new)                     4014.2        2529.7        1484.5         36.9%           0.0           2.8             5
+rl+sa (rl_v3new)                  3952.3        2516.7        1435.5         36.3%          88.6          65.9           233
+rl+ts (rl_v3new)                  3635.3        2562.8        1072.4         29.5%         160.8          32.1           123
+rl+ga (rl_v3new)                  3614.6        2536.1        1078.5         29.8%         162.6         142.5           592
+rl+alns (rl_v3new)                3938.0        2547.0        1391.0         35.3%         119.0          77.8           302
+
+  VKT = vehicle-kilometres travelled (minutes proxy — same units as simulation).
+  Deadhead = fraction of total distance driven with no passengers aboard.
+  Improvements = successful metaheuristic route-improvement steps.
+  Latency = full dispatch decision epoch (insertion + improvement pass).
+
+TABLE 3 — WORST-CASE SEED ANALYSIS  (mean_wait per seed, minutes)
+----------------------------------------------------------------------------------------------------
+Policy                             s42         s43         s44         s45         s46       WORST
+--------------------------------------------------------------------------------------------------
+rl (rl_v3new)                    16.76       18.00       16.89       16.95       16.31       18.00
+rl+sa (rl_v3new)                 15.74       16.66       15.68       15.14       16.38       16.66
+rl+ts (rl_v3new)                 13.35       14.98       11.87       13.13       14.39       14.98
+rl+ga (rl_v3new)                 12.34       14.64       11.91       13.13       14.21       14.64
+rl+alns (rl_v3new)               13.98       15.12       13.51       13.75       15.42       15.42
+
+  WORST = highest mean_wait observed across any single seed.
+  A robust policy shows low variance across this row.
+
+TABLE 4 — CONSTRAINT COMPLIANCE
+------------------------------------------------------------------------------------------------
+Policy                        violations    wait viols    ride viols   wait excess   ride excess
+------------------------------------------------------------------------------------------------
+rl (rl_v3new)                         23            22             2          1.95          1.18
+rl+sa (rl_v3new)                      18            17             1          2.04          1.38
+rl+ts (rl_v3new)                      15            14             1          1.93          2.19
+rl+ga (rl_v3new)                      11            11             1          1.85          1.95
+rl+alns (rl_v3new)                    13            12             2          1.87          0.68
+
+  Violations = execution-time hard constraint breaches (target: 0).
+  Wait/ride excess = mean overshoot in minutes when a violation occurs.
+
+==============================================================================================================
