@@ -85,6 +85,8 @@ MODEL_REGISTRY = {
     "rl_v4ant": "rl_outputs/run_015/checkpoints/best/model.zip",
 
     "rl_v5ant": "rl_outputs/run_016/checkpoints/best/model.zip",
+
+    "rl_v6": "rl_outputs/run_017/checkpoints/best/model.zip",
 }
 
 
@@ -113,6 +115,7 @@ _RL_POLICIES = [
     #("rl",     "rl_v3ant_new"),
     ("rl",     "rl_v4ant"),
     ("rl",     "rl_v5ant"),
+    ("rl",     "rl_v6")
     # ---- RL + Simulated Annealing ----
     ("rl+sa",  "rl_base"),
     ("rl+sa",  "rl_v3"),
@@ -123,6 +126,7 @@ _RL_POLICIES = [
     #("rl+sa",  "rl_v3ant_new"),
     ("rl+sa",  "rl_v4ant"),
     ("rl+sa",  "rl_v5ant"),
+    ("rl+sa",  "rl_v6"),
     # ---- RL + Tabu Search (primary hybrid) ----
     ("rl+ts",  "rl_base"),
     ("rl+ts",  "rl_v3"),
@@ -133,6 +137,7 @@ _RL_POLICIES = [
     #("rl+ts",  "rl_v3ant_new"),
     ("rl+ts",  "rl_v4ant"),
     ("rl+ts",  "rl_v5ant"),
+    ("rl+ts",  "rl_v6"),
     # ---- RL + Genetic Algorithm ----
     ("rl+ga",  "rl_base"),
     ("rl+ga",  "rl_v3"),
@@ -143,6 +148,7 @@ _RL_POLICIES = [
     #("rl+ga",  "rl_v3ant_new"),
     ("rl+ga",  "rl_v4ant"),
     ("rl+ga",  "rl_v5ant"),
+    ("rl+ga",  "rl_v6"),
     # ---- RL + ALNS ----
     ("rl+alns","rl_base"),
     ("rl+alns","rl_v3"),
@@ -153,6 +159,7 @@ _RL_POLICIES = [
     #("rl+alns","rl_v3ant_new"),
     ("rl+alns","rl_v4ant"),
     ("rl+alns","rl_v5ant"),
+    ("rl+alns",  "rl_v6"),
 ]
 
 # All metric keys produced by metrics.MetricsCollector.summary().
@@ -235,8 +242,11 @@ def execute_run(spec: RunSpec, out_dir: Path,
     from main import main as sim_main
     import rl_env
 
-    # Only rl_v3ant was trained with anticipatory features — all others use False.
-    rl_env.USE_ANTICIPATORY_FEATURES = (spec.model_key == "rl_v3ant" or spec.model_key == "rl_v3ant_new" or spec.model_key == "rl_v4ant" or spec.model_key == "rl_v5ant")
+    # Set observation flags based on model.
+    # v6: 12 per-vehicle features (USE_V6_FEATURES=True), no anticipatory features.
+    # ant variants: 4 extra global anticipatory features.
+    rl_env.USE_V6_FEATURES = (spec.model_key == "rl_v6")
+    rl_env.USE_ANTICIPATORY_FEATURES = (spec.model_key in ("rl_v3ant", "rl_v3ant_new", "rl_v4ant", "rl_v5ant"))
 
     model_path = MODEL_REGISTRY.get(spec.model_key) if spec.model_key else None
 
@@ -697,7 +707,7 @@ Examples:
     parser.add_argument("--no-greedy", action="store_true",
                         help="Exclude all greedy policies; run RL models only.")
     parser.add_argument("--rl-model", nargs="+", default=None,
-                        choices=["rl_base", "rl_v3", "rl_v3ant", "rl_v4", "rl_v5", "rl_v3new", "rl_v3ant_new", "rl_v4ant", "rl_v5ant"],
+                        choices=["rl_base", "rl_v3", "rl_v3ant", "rl_v4", "rl_v5", "rl_v3new", "rl_v3ant_new", "rl_v4ant", "rl_v5ant", "rl_v6"],
                         help="Restrict to specific RL model(s). Default: all five.")
     # ---- Output ----
     parser.add_argument("--out",          default="benchmark_results")
