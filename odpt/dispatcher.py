@@ -729,14 +729,22 @@ def _encode_live_state(
     request, vehicles, vehicle_ids, current_time, system_state, cfg,
     metrics=None,
 ):
-    """Encode live SimPy state into the RL observation vector."""
+    """Encode live SimPy state into the RL observation vector.
+
+    Supports three observation layouts:
+      - Standard (74 dims): USE_V6_FEATURES=False, USE_ANTICIPATORY_FEATURES=False
+      - Anticipatory (78 dims): USE_ANTICIPATORY_FEATURES=True
+      - V6 (106 dims): USE_V6_FEATURES=True — 12 per-vehicle features + 4 global
+    """
     import numpy as np
+    import rl_env as _rl_env
     from rl_env import (get_obs_size, OBS_PER_VEHICLE, OBS_REQUEST,
-                        MAX_VEHICLES, USE_ANTICIPATORY_FEATURES)
+                        MAX_VEHICLES, USE_ANTICIPATORY_FEATURES,
+                        USE_V6_FEATURES, OBS_PER_VEHICLE_V6, get_obs_size_v6)
     from malta_travel import DEFAULT_COORDS, congestion_factor
     from config import arrival_rate
 
-    obs = np.zeros(get_obs_size(), dtype=np.float32)
+    obs = np.zeros(get_obs_size_v6(), dtype=np.float32)
 
     lon_min, lon_max = 14.35, 14.55
     lat_min, lat_max = 35.85, 35.95
@@ -750,9 +758,12 @@ def _encode_live_state(
             return np.clip(x, -1, 1), np.clip(y, -1, 1)
         return 0.0, 0.0
 
+    # Per-vehicle features — 12 for v6, 8 otherwise
+    veh_feats = OBS_PER_VEHICLE_V6 if USE_V6_FEATURES else OBS_PER_VEHICLE
+
     for i, vid in enumerate(vehicle_ids[:MAX_VEHICLES]):
         v = vehicles[vid]
-        base = i * OBS_PER_VEHICLE
+        base = i * veh_feats
         x, y = norm_coord(v.location)
         obs[base + 0] = x
         obs[base + 1] = y
@@ -767,7 +778,45 @@ def _encode_live_state(
         obs[base + 6] = min(d_pu / 30.0, 1.0)
         obs[base + 7] = min(d_do / 30.0, 1.0)
 
-    req_base = MAX_VEHICLES * OBS_PER_VEHICLE
+        # V6 extra features [8-11]: schedule tightness
+        if USE_V6_FEATURES:
+            if not v.plan:
+                obs[base + 8]  = 0.0
+                obs[base + 9]  = 1.0
+                obs[base + 10] = 1.0
+                obs[base + 11] = 0.0
+            else:
+                cur_node = v.location
+                cur_time = current_time
+                pu_slacks, wait_qualities, urgencies = [], [], []
+                for stop in v.plan:
+                    cur_time += travel_fn(cur_node, stop.node, cur_time)
+                    if stop.kind == "PU":
+                        if stop.earliest and cur_time < stop.earliest:
+                            cur_time = stop.earliest
+                        latest = getattr(stop, "latest", None)
+                        if latest is not None:
+                            pu_slacks.append(
+                                max(0.0, latest - cur_time) / max(cfg.max_wait, 1.0)
+                            )
+                        if stop.request_time is not None:
+                            est_wait = max(0.0, cur_time - stop.request_time)
+                            wait_qualities.append(
+                                1.0 - min(est_wait / max(cfg.max_wait, 1.0), 1.0)
+                            )
+                            elapsed = current_time - stop.request_time
+                            urgencies.append(
+                                min(max(elapsed, 0.0) / max(cfg.max_wait, 1.0), 1.0)
+                            )
+                    cur_time += stop.service
+                    cur_node  = stop.node
+                makespan = cur_time - current_time
+                obs[base + 8]  = min(makespan / max(cfg.service_end, 1), 1.0)
+                obs[base + 9]  = min(pu_slacks,        default=1.0) if pu_slacks else 1.0
+                obs[base + 10] = float(np.mean(wait_qualities)) if wait_qualities else 1.0
+                obs[base + 11] = max(urgencies,         default=0.0) if urgencies else 0.0
+
+    req_base = MAX_VEHICLES * veh_feats
     px, py = norm_coord(request.pickup_node)
     dx, dy = norm_coord(request.dropoff_node)
     obs[req_base + 0] = px

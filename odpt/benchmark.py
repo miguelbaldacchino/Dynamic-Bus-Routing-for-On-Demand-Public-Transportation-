@@ -115,7 +115,7 @@ _RL_POLICIES = [
     #("rl",     "rl_v3ant_new"),
     ("rl",     "rl_v4ant"),
     ("rl",     "rl_v5ant"),
-    ("rl",     "rl_v6")
+    ("rl",     "rl_v6"),
     # ---- RL + Simulated Annealing ----
     ("rl+sa",  "rl_base"),
     ("rl+sa",  "rl_v3"),

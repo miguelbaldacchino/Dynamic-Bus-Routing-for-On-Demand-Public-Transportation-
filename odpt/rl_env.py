@@ -41,7 +41,7 @@ OBS_REQUEST = 6
 # Anticipatory features flag — overridden per-run by benchmark.py execute_run().
 # When False: 4 global features (74 dims total) — baseline models (rl_v4 etc.)
 # When True:  8 global features (78 dims total) — rl_v3ant only.
-USE_ANTICIPATORY_FEATURES = True
+USE_ANTICIPATORY_FEATURES = False
 
 
 def get_obs_size() -> int:
@@ -617,3 +617,25 @@ class DARPEnv(gym.Env):
             "p95_wait": float(np.percentile(wait_times, 95)) if len(wait_times) > 1 else None,
             "p95_ride": float(np.percentile(ride_times, 95)) if len(ride_times) > 1 else None,
         }
+
+# ---------------------------------------------------------------------------
+# v6 observation flag
+# ---------------------------------------------------------------------------
+# When True: OBS_PER_VEHICLE expands from 8 to 12 features.
+# Added features per vehicle:
+#   [8]  plan_makespan_norm  — estimated time to serve all queued stops / service_end
+#   [9]  min_wait_slack_norm — tightest wait window remaining across onboard pax / max_wait
+#   [10] mean_wait_quality   — mean (1 - est_wait/max_wait) for onboard passengers
+#   [11] urgency             — fraction of max_wait already consumed by earliest queued PU
+# These give the agent direct visibility into schedule tightness — the
+# key information TS has but RL never saw in v1-v5.
+USE_V6_FEATURES = False
+
+OBS_PER_VEHICLE_V6 = 12
+
+
+def get_obs_size_v6() -> int:
+    if USE_V6_FEATURES:
+        global_feats = 4
+        return MAX_VEHICLES * OBS_PER_VEHICLE_V6 + OBS_REQUEST + global_feats
+    return get_obs_size()
