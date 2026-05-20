@@ -56,14 +56,14 @@ sys.stderr.reconfigure(encoding='utf-8')
 # ---------------------------------------------------------------------------
 MODEL_REGISTRY = {
     # Untuned RL (run_006 from rl_train.py — no Optuna tuning)
-    "rl_base": "rl_outputs/run_006/model.zip",
+    "rl_base": "../rl_outputs/run_006/model.zip",
 
     # v3 tune — standalone-objective model (best v3 Optuna trial)
     # Update this path to your best v3 training run.
-    "rl_v3":   "rl_outputs/run_008/model.zip",
+    "rl_v3":   "../rl_outputs/run_008/model.zip",
 
     # v3 tune — anticipatory features
-    "rl_v3ant": "rl_outputs/run_012/checkpoints/best/model.zip",
+    "rl_v3ant": "../rl_outputs/run_012/checkpoints/best/model.zip",
 
     # v4 tune — TS-initialiser model, trained via rl_train_from_tune.py.
     # Use model_final.zip — confirmed from tfevents that the best callback
@@ -71,22 +71,22 @@ MODEL_REGISTRY = {
     # model_final.zip and checkpoints/best/ are the same weights.
     # model_final.zip is the cleaner reference.
     # !! UPDATE THIS PATH to your v4 run directory.
-    "rl_v4":   "rl_outputs/run_009/model_final.zip",
+    "rl_v4":   "../rl_outputs/run_009/model_final.zip",
 
     # v5 tune
-    "rl_v5":   "rl_outputs/run_011/checkpoints/best/model.zip",
+    "rl_v5":   "../rl_outputs/run_011/checkpoints/best/model.zip",
 
     # v3 new — new congestion factors v3 model
-    "rl_v3new": "rl_outputs/run_013/model.zip",
+    "rl_v3new": "../rl_outputs/run_013/model.zip",
 
     #v3ant new — new congestion factors v3ant model
-    "rl_v3ant_new": "rl_outputs/run_014/model.zip",
+    "rl_v3ant_new": "../rl_outputs/run_014/model.zip",
 
-    "rl_v4ant": "rl_outputs/run_015/checkpoints/best/model.zip",
+    "rl_v4ant": "../rl_outputs/run_015/checkpoints/best/model.zip",
 
-    "rl_v5ant": "rl_outputs/run_016/checkpoints/best/model.zip",
+    "rl_v5ant": "../rl_outputs/run_016/checkpoints/best/model.zip",
 
-    "rl_v6": "rl_outputs/run_017/checkpoints/best/model.zip",
+    "rl_v6": "../rl_outputs/run_017/checkpoints/best/model.zip",
 }
 
 
@@ -709,6 +709,14 @@ Examples:
     parser.add_argument("--rl-model", nargs="+", default=None,
                         choices=["rl_base", "rl_v3", "rl_v3ant", "rl_v4", "rl_v5", "rl_v3new", "rl_v3ant_new", "rl_v4ant", "rl_v5ant", "rl_v6"],
                         help="Restrict to specific RL model(s). Default: all five.")
+    parser.add_argument("--policies", nargs="+", default=None,
+                        metavar="POLICY:MODEL",
+                        help=(
+                            "Exact (policy, model) pairs to run, formatted as policy:model. "
+                            "Greedy policies use 'none' as model. "
+                            "Overrides --rl-model, --no-rl, --no-greedy when specified. "
+                            "Examples: greedy:none greedy+ts:none rl:rl_v4 rl+ts:rl_v4 rl+alns:rl_v4"
+                        ))
     # ---- Output ----
     parser.add_argument("--out",          default="benchmark_results")
     parser.add_argument("--stop-on-error", action="store_true")
@@ -741,15 +749,25 @@ def main():
 
     seeds = args.seeds if args.seeds else list(range(100, 100 + args.n_seeds))
 
-    greedy_policies = [] if args.no_greedy else list(_GREEDY_POLICIES)
-
-    if args.no_rl:
-        rl_policies = []
+    if args.policies:
+        # Exact policy:model pairs -- overrides all other filters.
+        all_policies = []
+        for entry in args.policies:
+            if ":" not in entry:
+                print(f"ERROR: --policies entry '{entry}' must be in policy:model format.")
+                print("  Use 'none' for greedy policies, e.g. greedy+ts:none")
+                sys.exit(1)
+            pol, mkey = entry.split(":", 1)
+            mkey = None if mkey.lower() == "none" else mkey
+            all_policies.append((pol, mkey))
     else:
-        allowed_models = set(args.rl_model) if args.rl_model else set(MODEL_REGISTRY.keys())
-        rl_policies = [(p, m) for p, m in _RL_POLICIES if m in allowed_models]
-
-    all_policies = greedy_policies + rl_policies
+        greedy_policies = [] if args.no_greedy else list(_GREEDY_POLICIES)
+        if args.no_rl:
+            rl_policies = []
+        else:
+            allowed_models = set(args.rl_model) if args.rl_model else set(MODEL_REGISTRY.keys())
+            rl_policies = [(p, m) for p, m in _RL_POLICIES if m in allowed_models]
+        all_policies = greedy_policies + rl_policies
 
     if not all_policies:
         print("ERROR: no policies selected.")
