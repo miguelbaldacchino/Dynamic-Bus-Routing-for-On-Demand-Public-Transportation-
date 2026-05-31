@@ -5,6 +5,7 @@
 #
 # python build_osrm_matrix.py --stops malta_stops.csv --out malta_travel_matrix.json
 
+
 import argparse
 import csv
 import json

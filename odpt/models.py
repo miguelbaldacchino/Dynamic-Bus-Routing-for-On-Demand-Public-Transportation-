@@ -2,6 +2,7 @@
 # Dataclasses: Request, Vehicle, Stop, RequestStatus.
 # Not runnable — imported by all other modules.
 
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
