@@ -1,26 +1,8 @@
-#!/usr/bin/env python3
-"""
-build_route_cache.py
-====================
-One-time script: query OSRM for the road geometry between every pair
-of Malta On Demand stops and save to route_cache.json.
-
-After this runs once, simulation_map.html will show real road routes
-instead of straight lines.
-
-Usage:
-    # With local OSRM Docker running:
-    py build_route_cache.py
-
-    # With public OSRM server (slower but no Docker needed):
-    py build_route_cache.py --osrm-url http://router.project-osrm.org
-
-    # Start OSRM Docker first if needed:
-    docker run -d --rm --name osrm-malta -p 5000:5000 ^
-        -v %cd%/osrm_data:/data osrm/osrm-backend ^
-        osrm-routed --algorithm mld /data/malta-latest.osrm
-"""
-
+# build_route_cache.py
+# One-off pre-computation of common route segments for warm-starting.
+# Run once before benchmark if caching is enabled in config.
+#
+# python build_route_cache.py
 import argparse
 from visualize import build_route_cache
 from malta_travel import STOP_COORDS

@@ -1,63 +1,7 @@
 # ts.py
-# Tabu Search improvement policy for dynamic DARP.
-#
-# Drop-in companion for SAPolicy and GAPolicy.  Same interface:
-#   TSPolicy.propose(system_state, feasibility_checker, weights)
-#   -> dict { vehicle_id: improved_plan }
-#
-# Design decisions (thesis-relevant)
-# ------------------------------------
-# 1. TABU LIST
-#    Each move is identified by a (req_id, pu_pos, do_pos) tuple — the
-#    request being relocated and the target positions of its PU and DO
-#    in the movable portion of the plan.  A move is tabu for `tabu_tenure`
-#    iterations after it is made, preventing the search from immediately
-#    reversing it.  This is the standard DARP-TS move attribute (Cordeau
-#    & Laporte, 2003 — the canonical DARP tabu search paper cited in the
-#    thesis).
-#
-# 2. ASPIRATION CRITERION
-#    A tabu move is still accepted if it produces a solution strictly
-#    better than the best solution found so far (global best override).
-#    This is the standard aspiration criterion from Glover (1989) and
-#    is present in all serious TS implementations.
-#
-# 3. NEIGHBOUR OPERATORS (identical to SA/GA for fair comparison)
-#    _pair_relocate : remove one request's PU+DO, re-insert at new i<j.
-#    _pair_swap     : swap positions of two requests' PU+DO pairs.
-#    Both operators generate ALL feasible neighbours deterministically
-#    (up to a cap) and pick the best non-tabu one, rather than sampling
-#    randomly like SA.  This is the key TS vs SA design distinction:
-#    TS performs a structured neighbourhood search at each iteration;
-#    SA makes a single random move.
-#
-# 4. INTENSIFICATION vs DIVERSIFICATION
-#    - Intensification: best-improving move (not first-improving),
-#      giving TS stronger local search per iteration than SA.
-#    - Diversification: if no improvement is found for `patience`
-#      consecutive iterations, a random restart from the best-known
-#      solution is triggered.  This prevents stagnation without
-#      temperature-style acceptance of worse solutions.
-#
-# 5. TWO-PHASE STRUCTURE (matches SA and GA)
-#    Phase 1: intra-vehicle TS for each vehicle with >=4 movable stops.
-#    Phase 2: inter-vehicle request transfer (greedy, same as SA/GA).
-#    Each vehicle gets its own per-vehicle time budget.
-#
-# 6. MOVE REPRESENTATION
-#    A move is the tuple (req_id, pu_pos, do_pos) where pu_pos and
-#    do_pos are indices in the MOVABLE portion of the plan (0-indexed,
-#    after the committed prefix).  The tabu list is a dict mapping
-#    move -> iteration_made, expiring after tabu_tenure steps.
-#
-# Thesis note
-# -----------
-# TS is positioned as the classical strong baseline for DARP
-# (Cordeau & Laporte 2003 is the seminal paper, cited as [4] in your
-# thesis proposal).  The expected thesis finding is that TS finds
-# better intra-vehicle orderings per iteration than SA (structured
-# search) but is slower per iteration (evaluates more neighbours),
-# leading to a quality-latency trade-off that your evaluation quantifies.
+# Tabu Search route optimiser. Neighbourhood: 2-opt + or-opt moves
+# with recency-based tabu tenure.
+# Not runnable standalone — imported by dispatcher.py.
 
 import random
 import time

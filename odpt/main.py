@@ -1,17 +1,11 @@
 # main.py
-# Unified SimPy simulation — Malta On Demand (05:30 to 22:30).
-# All times in MINUTES.  Simulation t=0 = 05:30.
+# Single entry-point SimPy simulation (05:30–22:30, Malta ODPT).
+# Runs any policy: greedy, metaheuristic hybrids, RL, RL+metaheuristic.
 #
-# Single entry point for ALL policies. No more separate main files.
-#
-# Usage:
-#   python main.py                                                  # greedy+sa (default)
-#   python main.py --policy greedy                                  # greedy only (no SA)
-#   python main.py --policy rl --model rl_outputs/run_008/model.zip # tuned RL
-#   python main.py --policy rl --model rl_outputs/run_006/model.zip # base RL
-#   python main.py --policy rl+sa --model rl_outputs/run_008/model.zip  # hybrid
-#   python main.py --no-viz                                         # skip map
-#   python main.py --verbose                                        # per-stop prints
+# python main.py                                        # greedy+sa (default)
+# python main.py --policy greedy
+# python main.py --policy rl+ts --model rl_outputs/run_009/model_final.zip
+# python main.py --policy greedy+alns --no-viz --seed 42
 
 import simpy
 import random

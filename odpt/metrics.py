@@ -1,15 +1,7 @@
 # metrics.py
-# Structured metrics collection for the DARP simulation.
-#
-# New in this version:
-#   - log_distance() now accepts passengers_onboard to split loaded vs empty
-#     (deadhead) distance.  Requires main.py to pass len(vehicle.onboard).
-#   - summary() adds: deadhead_ratio, loaded_distance, empty_distance,
-#     p50_wait, min_wait, max_wait, std_wait (within-run distribution width).
-#
-# Violations are recorded with full detail (kind, req_id, actual value,
-# limit, simulation time) so they can be inspected after a run, not just
-# counted.  This is required for the thesis constraint-violation analysis.
+# MetricsCollector: records per-request waiting/ride times, service rate,
+# rejections, distance, and vehicle-hours. Writes summary.json.
+# Not runnable — imported by main.py and benchmark.py.
 
 from __future__ import annotations
 import math

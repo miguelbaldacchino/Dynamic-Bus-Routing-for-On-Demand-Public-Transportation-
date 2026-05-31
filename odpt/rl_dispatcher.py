@@ -1,16 +1,7 @@
-#!/usr/bin/env python3
 # rl_dispatcher.py
-# Drop-in RL dispatch policy for the live SimPy simulation.
-#
-# Loads a trained MaskablePPO model and uses it for vehicle assignment.
-# Greedy best-position insertion handles within-vehicle routing.
-#
-# Usage in main.py:
-#   from rl_dispatcher import build_rl_policy, rl_insert
-#   build_rl_policy("rl_outputs/run_001/model.zip")
-#
-#   # In request_generator, replace greedy_insert() with:
-#   inserted = rl_insert(req, vehicles, system_state, current_time, weights, metrics)
+# Wraps a trained SB3 MaskablePPO model as a callable dispatcher.
+# Loaded by main.py when --policy rl (or rl+*) is used.
+# Not runnable standalone — imported by dispatcher.py.
 
 from __future__ import annotations
 

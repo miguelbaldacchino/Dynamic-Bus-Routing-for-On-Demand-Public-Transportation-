@@ -1,39 +1,11 @@
-#!/usr/bin/env python3
 # benchmark.py
-# Multi-seed benchmark runner for the DARP simulation.
+# Multi-seed benchmark runner. Runs all policy families, aggregates
+# mean±std per metric, writes aggregated.json/.csv and report.txt.
 #
-# Runs every policy combination across multiple seeds, collects per-run
-# summary.json files, then computes mean ± std for every metric and writes
-# a structured results report.
-#
-# Policy matrix
-# -------------
-# Greedy family  : greedy, greedy+sa, greedy+ts, greedy+ga, greedy+alns
-# RL base        : rl, rl+sa, rl+ts, rl+ga, rl+alns  (untuned model)
-# RL v3          : rl, rl+sa, rl+ts, rl+ga, rl+alns  (standalone-objective tune)
-# RL v4          : rl, rl+sa, rl+ts, rl+ga, rl+alns  (TS-initialiser tune — champion)
-#
-# Usage
-# -----
-#   python benchmark.py                          # all policies, 5 seeds
-#   python benchmark.py --n-seeds 10
-#   python benchmark.py --seeds 42 43 44 45 46
-#   python benchmark.py --no-rl                  # greedy family only
-#   python benchmark.py --no-greedy              # RL models only (all five)
-#   python benchmark.py --rl-model rl_v4         # only v4 RL policies (+greedy)
-#   python benchmark.py --rl-model rl_v4 --no-greedy  # only v4 RL, no greedy
-#   python benchmark.py --rl-model rl_v4 rl_base # subset of RL models
-#   python benchmark.py --out thesis_benchmark
-#   python benchmark.py --stop-on-error
-#
-# Outputs
-# -------
-#   benchmark_results/
-#     runs/            one summary.json per (policy, seed) run
-#     aggregated.json  mean ± std for every metric, every policy
-#     aggregated.csv   same, in spreadsheet-friendly format
-#     report.txt       human-readable thesis tables (service, operational,
-#                      worst-case seed, constraint compliance)
+# python benchmark.py                        # all policies, 5 seeds
+# python benchmark.py --n-seeds 10
+# python benchmark.py --no-rl               # greedy family only
+# python benchmark.py --rl-model rl_v4      # TS-init champion model
 
 from __future__ import annotations
 

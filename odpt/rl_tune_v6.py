@@ -1,21 +1,8 @@
-#!/usr/bin/env python3
 # rl_tune_v6.py
-# Optuna hyperparameter search — v6 "Richer observations + noise training".
+# Optuna hyperparameter search for v6 reward (wait_all + noise training).
+# Canonical final tuner; writes best config to rl_tune_v6_best.json.
 #
-# v5 actual best (trial 12/30, score=10.47):
-#   w_wait=2.876  w_rejection=7.223  w_imbalance=0.675
-#   lr=3.89e-4  gamma=0.9919  ent=0.0170  n_steps=1024
-#
-# v6 FIXES from v5:
-#   FIX 1: travel_noise=0.10 during training (was 0.0) — closes sim-to-real gap
-#   FIX 2: 12 per-vehicle obs features (was 8) — adds schedule tightness signals
-#   FIX 3: mean_wait_all running term in reward (w_wait_all) — removes rejection bias
-#   No curriculum — dropped (broken in SB3, uncertain benefit)
-#
-# Seed trials: v5 actual best + two hedges exploring w_wait_all axis
-# MAX_WAIT_PENALTY = 60 (unchanged from v5)
-# Eval seeds: 4000+i (distinct from all previous)
-# Baseline: greedy+ts seeds 100-104
+# python rl_tune_v6.py --trials 30 --jobs 4
 
 from __future__ import annotations
 
@@ -148,8 +135,8 @@ class DARPEnvV6:
 
     @staticmethod
     def make(cfg, w_wait, w_wait_all, w_rejection, w_imbalance):
-        import rl_env_v6 as _re
-        from rl_env_v6 import DARPEnv
+        import odpt.rl_env as _re
+        from odpt.rl_env import DARPEnv
         from gymnasium import spaces
 
         _re.USE_V6_FEATURES           = True
@@ -173,7 +160,7 @@ class DARPEnvV6:
         )
 
         def _v6_encode_state(self):
-            import rl_env_v6 as _r
+            import odpt.rl_env as _r
             obs = np.zeros(_r.get_obs_size_v6(), dtype=np.float32)
             vf  = _r.OBS_PER_VEHICLE_V6
             for i, vid in enumerate(self._vehicle_ids[:_r.MAX_VEHICLES]):
@@ -231,7 +218,7 @@ class DARPEnvV6:
 
 
 def _eval_standalone(model, cfg, n_ep, w_wait, w_wait_all, w_rejection, w_imbalance):
-    import rl_env_v6 as _re
+    import odpt.rl_env as _re
     from config import SimulationConfig
     _re.USE_V6_FEATURES=True; _re.USE_ANTICIPATORY_FEATURES=False
     results = []
@@ -253,7 +240,7 @@ def _eval_standalone(model, cfg, n_ep, w_wait, w_wait_all, w_rejection, w_imbala
 
 
 def _eval_rl_ts(model, cfg, n_ep, w_wait, w_wait_all, w_rejection, w_imbalance):
-    import rl_env_v6 as _re
+    import odpt.rl_env as _re
     from ts import TSPolicy
     from feasibility import check_feasibility
     from config import SimulationConfig
@@ -293,7 +280,7 @@ def _eval_rl_ts(model, cfg, n_ep, w_wait, w_wait_all, w_rejection, w_imbalance):
 
 def run_trial(trial, timesteps, n_envs, tb_base):
     import torch
-    import rl_env_v6 as _re
+    import odpt.rl_env as _re
     from sb3_contrib import MaskablePPO
     from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
     from stable_baselines3.common.callbacks import BaseCallback

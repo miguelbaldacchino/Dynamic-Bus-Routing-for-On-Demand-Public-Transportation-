@@ -1,43 +1,7 @@
 # ga.py
-# Genetic Algorithm improvement policy for dynamic DARP.
-#
-# Drop-in replacement / companion for SAPolicy.  Same interface:
-#   GAPolicy.propose(system_state, feasibility_checker, weights)
-#   -> dict { vehicle_id: improved_plan }
-#
-# Design decisions (thesis-relevant)
-# -----------------------------------
-# 1. Population = permutations of MOVABLE stops within a vehicle's plan.
-#    Committed/in-transit stops are frozen as a prefix — never touched.
-#
-# 2. Representation: each individual is a list of stops (the movable
-#    portion of a vehicle's plan).  This is a direct/order-based
-#    encoding, not a binary one, because DARP solutions are ordered
-#    sequences with hard precedence constraints (PU before DO).
-#
-# 3. Crossover: Order Crossover (OX) adapted for paired PU/DO stops.
-#    Standard OX would break precedence, so we repair after crossover
-#    by scanning for any DO that appears before its PU and swapping
-#    them.  This is the standard DARP-GA repair approach (Jørgensen
-#    et al. 2007).
-#
-# 4. Mutation operators (same as SA for comparability):
-#    - pair_relocate: remove one request's PU+DO and re-insert at
-#      random positions i<j.
-#    - pair_swap: swap the positions of two requests' PU+DO pairs.
-#
-# 5. Selection: tournament selection (size 3).  Elitism preserves
-#    the best individual across generations.
-#
-# 6. Inter-vehicle moves: after intra-vehicle GA for each vehicle,
-#    a quick inter-vehicle phase tries moving requests between
-#    vehicles (same as SA phase 2), using GA-style selection.
-#
-# 7. Time budget: same per-vehicle wall-clock limit as SA, ensuring
-#    fair comparison under identical computational budgets.
-#
-# All constraint checking uses the shared feasibility checker.
-# No routing logic lives here — only plan permutation and selection.
+# Genetic Algorithm route optimiser. Population of permutations,
+# PMX crossover, swap mutation, feasibility repair.
+# Not runnable standalone — imported by dispatcher.py.
 
 import random
 import time

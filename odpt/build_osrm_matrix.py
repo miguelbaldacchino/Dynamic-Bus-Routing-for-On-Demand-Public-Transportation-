@@ -1,35 +1,9 @@
-#!/usr/bin/env python3
-"""
-build_osrm_matrix.py
-====================
-End-to-end pipeline to build the Malta On Demand travel-time matrix
-using a LOCAL OSRM instance with real road network data.
-
-Prerequisites:
-    - Docker installed and running
-    - Python 3.10+
-    - pip install requests
-
-What this script does:
-    1. Downloads malta-latest.osm.pbf from Geofabrik (if not present)
-    2. Starts a local OSRM Docker container with Malta data
-    3. Queries the /table endpoint for the 72x72 travel-time matrix
-    4. Saves malta_travel_matrix.json
-    5. Generates malta_travel.py (drop-in replacement for travel.py)
-    6. Stops the Docker container
-
-Usage:
-    python build_osrm_matrix.py
-
-    # If you already downloaded the PBF file:
-    python build_osrm_matrix.py --skip-download
-
-    # If OSRM is already running (e.g. you set it up manually):
-    python build_osrm_matrix.py --osrm-url http://localhost:5000 --skip-docker
-
-    # Use the public OSRM server instead of local Docker (slower, rate-limited):
-    python build_osrm_matrix.py --osrm-url http://router.project-osrm.org --skip-docker --skip-download
-"""
+# build_osrm_matrix.py
+# One-off utility: queries a local OSRM server to build
+# malta_travel_matrix.json from malta_stops.csv.
+# Only needed if regenerating the travel matrix.
+#
+# python build_osrm_matrix.py --stops malta_stops.csv --out malta_travel_matrix.json
 
 import argparse
 import csv

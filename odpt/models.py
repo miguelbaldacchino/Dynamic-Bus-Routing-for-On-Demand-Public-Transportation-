@@ -1,15 +1,6 @@
 # models.py
-# Shared data structures used across the simulation.
-#
-# Fixes applied
-# -------------
-# - Vehicle tracks in_transit_stop so the dispatcher can reconstruct
-#   accurate vehicle state even when the vehicle is mid-travel between
-#   SimPy yield points.
-# - Vehicle.wake_event: SimPy Event used to wake idle vehicles when a
-#   new stop is assigned (replaces 1-minute polling).
-# - to_state_dict() includes the in-transit stop in the plan snapshot
-#   so the feasibility checker sees the full committed route.
+# Dataclasses: Request, Vehicle, Stop, RequestStatus.
+# Not runnable — imported by all other modules.
 
 from __future__ import annotations
 from dataclasses import dataclass, field

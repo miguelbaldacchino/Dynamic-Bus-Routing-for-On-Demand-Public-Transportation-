@@ -1,14 +1,7 @@
 # config.py
-# All time values are in MINUTES.
-# Simulation time 0 = 05:30.
-# service_end = 1020 = 22:30 (last request accepted).
-# horizon = 1140 = 00:30 next day (sim clock stops; vehicles finish).
-#
-# Calibrated for the tallinja On Demand service (2019-2024 daily operation).
-# Fleet: 6 minibuses, 16 passengers each.
-# Zone: Sliema, St Julian's, San Gwann, Swieqi, Birkirkara, Msida,
-#        Gzira, Ta' Xbiex, Pembroke, Balzan, Santa Venera.
-# 72 stops, real OSRM travel times from Malta road network.
+# Centralised simulation parameters: fleet size, capacity, time windows,
+# algorithm hyperparameters, and demand profiles.
+# Not runnable — imported by all other modules.
 
 from __future__ import annotations
 from dataclasses import dataclass

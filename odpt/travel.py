@@ -1,21 +1,6 @@
 # travel.py
-# Map and travel-time model.
-#
-# Synthetic 20-node town map designed to produce realistic DARP metrics.
-# All travel times are in MINUTES.
-#
-# Node layout:
-#   Node 0     : Central depot / interchange
-#   Nodes 1-5  : Town centre  (dense, 0.5-1.5 km from depot)
-#   Nodes 6-10 : Inner suburbs (2-3 km from depot)
-#   Nodes 11-15: Outer suburbs (4-5 km from depot)
-#   Nodes 16-19: Rural fringe  (6-8 km from depot)
-#
-# Coordinates are in kilometres.
-# Travel time = (distance_km / effective_speed_kmh) * 60  [minutes]
-# Base speed 30 km/h; reduced during morning/afternoon peaks.
-#
-# Simulation time 0 = 07:00.
+# Base travel-time utilities and matrix lookup helpers.
+# Not runnable — imported by malta_travel.py and dispatcher.
 
 from __future__ import annotations
 import math

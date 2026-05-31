@@ -1,35 +1,8 @@
-#!/usr/bin/env python3
 # rl_train_from_tune_v6.py
-# Retrain MaskablePPO using the best config from rl_tune_v6.py.
+# Full retraining of MaskablePPO using best config from rl_tune_v6.py.
+# Canonical final trainer. Saves model_final.zip + TensorBoard logs.
 #
-# Key differences from v5 train script:
-#   - Uses DARPEnvV6.make() — v6 reward (w_wait_all, balance, growing rejection)
-#   - Training noise from config (train_noise=0.10)
-#   - USE_V6_FEATURES=True — 12 per-vehicle obs features
-#   - Eval uses DARPEnvV6 with tuned weights (not hardcoded defaults)
-#   - Eval noise=0.0 (consistent with tuning, comparable to v1-v5)
-#   - Baseline updated to seeds 100-104 greedy+ts values
-#
-# TensorBoard groups (identical to v5 for cross-version comparison):
-#   eval/rl_ts_mean_wait        — primary metric
-#   eval/standalone_mean_wait   — synergy gap partner
-#   eval/rl_ts_ts_improvements  — TS contribution
-#   eval/synergy_gap_wait       — TS contribution in minutes
-#   eval/rl_ts_service_rate
-#   eval/rl_ts_rejected
-#   eval/rl_ts_gap_vs_baseline
-#   eval/rl_ts_score
-#   eval/load_std
-#   eval/rl_ts_p95_wait
-#   rollout/ep_rew_mean
-#   train/entropy_loss
-#   train/approx_kl
-#
-# Usage:
-#   python rl_train_from_tune_v6.py
-#   python rl_train_from_tune_v6.py --config rl_outputs/tune_v6/best_config.json
-#   python rl_train_from_tune_v6.py --timesteps 1000000
-#   python rl_train_from_tune_v6.py --eval-freq 50000 --eval-eps 5
+# python rl_train_from_tune_v6.py --config rl_tune_v6_best.json
 
 from __future__ import annotations
 
@@ -124,7 +97,7 @@ def main():
     from stable_baselines3.common.callbacks import BaseCallback
 
     from config import SimulationConfig
-    import rl_env_v6 as _rl_env_v6
+    import odpt.rl_env as _rl_env_v6
     from rl_tune_v6 import (
         DARPEnvV6,
         _eval_rl_ts,

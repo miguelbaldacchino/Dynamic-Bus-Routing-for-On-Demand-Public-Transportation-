@@ -1,20 +1,7 @@
-#!/usr/bin/env python3
 # rl_env.py
-# Gymnasium environment for Dynamic DARP dispatch.
-#
-# Hierarchical decision: the agent selects a VEHICLE (or reject).
-# Greedy best-position insertion handles where in the plan to put
-# the PU/DO pair.  This is a standalone RL policy — greedy is used
-# only for within-vehicle positioning, not for vehicle selection.
-#
-# Action masking: infeasible vehicles (no valid insertion exists)
-# are masked out.  The agent can only pick feasible vehicles.
-# Constraint satisfaction is guaranteed by check_feasibility().
-#
-# Designed for sb3-contrib MaskablePPO.
-#
-# Matches documented config:
-#   6 buses, 16 capacity, depot node 40, 300 requests, Malta profile.
+# Gymnasium/MaskablePPO environment for DARP dispatch.
+# DARPEnvV6 is the canonical env; exposes obs, action mask, step/reset.
+# Not runnable standalone — used by rl_tune_v6.py and rl_train_from_tune_v6.py.
 
 from __future__ import annotations
 

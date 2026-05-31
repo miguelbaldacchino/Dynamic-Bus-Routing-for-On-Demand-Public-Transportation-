@@ -1,19 +1,7 @@
-#!/usr/bin/env python3
 # visualize.py
-# Post-hoc visualization of DARP simulation on a real Malta map.
-#
-# Routes follow actual roads via OSRM route geometry queries.
-# Geometries are cached in route_cache.json so OSRM is only queried once
-# per unique (from_node, to_node) pair across all simulation runs.
-#
-# Two-step workflow:
-#   Step 1 (once): python build_route_cache.py   — queries OSRM for all 72x72 routes
-#   Step 2 (auto): python main.py                — generates simulation_map.html
-#
-# If route_cache.json doesn't exist, falls back to straight lines.
-#
-# Requirements:
-#   pip install folium
+# Generates a Folium HTML map from a simulation event log.
+# Called automatically by main.py unless --no-viz is passed.
+# python visualize.py --events outputs/run_001/events.json
 
 from __future__ import annotations
 import json

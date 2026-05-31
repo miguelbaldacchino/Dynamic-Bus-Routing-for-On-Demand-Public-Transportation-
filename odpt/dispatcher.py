@@ -1,21 +1,7 @@
 # dispatcher.py
-# Unified dispatch interface — plug any policy into the simulation.
-#
-# Architecture:
-#   dispatch_request() is the SINGLE entry point called by main.py.
-#   It delegates to the active policy based on build_policy() config.
-#   All policies share the same feasibility checker and cost evaluator.
-#
-# Supported policies (cfg.policy string):
-#   "greedy"      — greedy best-position insertion only
-#   "greedy+sa"   — greedy insertion + SA improvement pass  (default)
-#   "rl"          — RL vehicle assignment + greedy within-vehicle
-#   "rl+sa"       — RL assignment + greedy insertion + SA improvement
-#
-# Usage:
-#   from dispatcher import build_policy, dispatch_request, print_plans
-#   build_policy(cfg, model_path="rl_outputs/run_008/model.zip")
-#   inserted = dispatch_request(req, vehicles, system_state, now, weights, metrics)
+# Central dispatcher: greedy insertion + optional metaheuristic polish.
+# Exports build_policy() and dispatch_request().
+# Not runnable — imported by main.py and rl_env.py.
 
 from __future__ import annotations
 

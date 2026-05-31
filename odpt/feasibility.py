@@ -1,35 +1,7 @@
 # feasibility.py
-# Shared feasibility checker and plan-objective evaluator.
-#
-# Single source of truth for all constraint verification and cost scoring.
-# No routing logic lives here.
-#
-# Commitment / in-progress passenger handling
-# -------------------------------------------
-# vehicle_process pops PU stops as it serves them.  A vehicle's plan can
-# therefore contain a DO stop whose PU stop has already been served (the
-# passenger is currently onboard).
-#
-# check_feasibility: pre-scans for already-onboard passengers and counts
-#   them into the initial load.  Their DO stop is a commitment, not a
-#   precedence violation.  Ride-time is checked using the actual pickup
-#   time from vehicle_state["onboard_pickup_times"].
-#
-# evaluate_plan: already-onboard passengers' ride time is included in
-#   the cost, computed from their actual pickup time to the estimated
-#   dropoff time in the plan.
-#
-# In-transit stop handling
-# ------------------------
-# When the vehicle is mid-travel, to_state_dict() prepends the in-transit
-# stop to the plan.  The feasibility checker then sees:
-#   [in_transit_stop, ...remaining plan...]
-# starting from the vehicle's departure node.  This gives correct travel
-# time estimates because travel(departure_node -> in_transit_stop.node)
-# accounts for the full leg, and subsequent stops chain from there.
-#
-# The dispatcher must NOT insert new stops before the in-transit stop
-# (it is committed).  This is enforced by the dispatcher, not here.
+# Shared feasibility gate enforcing capacity, precedence, time-windows,
+# and max ride-time. Called by dispatcher and all metaheuristics.
+# Not runnable — imported by dispatcher and optimisers.
 
 from __future__ import annotations
 from typing import Callable

@@ -1,0 +1,2549 @@
+{
+  "meta": {
+    "seeds": [
+      100,
+      101,
+      102,
+      103,
+      104
+    ],
+    "n_seeds": 5,
+    "policies": [
+      "rl (rl_v4)",
+      "rl+sa (rl_v4)",
+      "rl+ts (rl_v4)",
+      "rl+ga (rl_v4)",
+      "rl+alns (rl_v4)"
+    ],
+    "n_runs_total": 25,
+    "n_runs_successful": 25,
+    "wall_seconds": 333.9
+  },
+  "results": {
+    "rl (rl_v4)": {
+      "total_requests": {
+        "mean": 343.2,
+        "std": 24.5906,
+        "n": 5,
+        "values": [
+          339,
+          363,
+          306,
+          340,
+          368
+        ],
+        "worst": 368,
+        "best": 306
+      },
+      "served": {
+        "mean": 204.6,
+        "std": 9.4499,
+        "n": 5,
+        "values": [
+          205,
+          199,
+          193,
+          218,
+          208
+        ],
+        "worst": 218,
+        "best": 193
+      },
+      "rejected": {
+        "mean": 138.6,
+        "std": 22.6672,
+        "n": 5,
+        "values": [
+          134,
+          164,
+          113,
+          122,
+          160
+        ],
+        "worst": 164,
+        "best": 113
+      },
+      "service_rate": {
+        "mean": 0.598,
+        "std": 0.0404,
+        "n": 5,
+        "values": [
+          0.6047,
+          0.5482,
+          0.6307,
+          0.6412,
+          0.5652
+        ],
+        "worst": 0.6412,
+        "best": 0.5482
+      },
+      "mean_wait": {
+        "mean": 17.8184,
+        "std": 0.9245,
+        "n": 5,
+        "values": [
+          18.3029,
+          17.6601,
+          16.491,
+          18.9883,
+          17.6495
+        ],
+        "worst": 18.9883,
+        "best": 16.491
+      },
+      "p50_wait": {
+        "mean": 17.7692,
+        "std": 1.7222,
+        "n": 5,
+        "values": [
+          18.6186,
+          16.3476,
+          15.537,
+          19.4921,
+          18.851
+        ],
+        "worst": 19.4921,
+        "best": 15.537
+      },
+      "p95_wait": {
+        "mean": 31.4341,
+        "std": 0.5943,
+        "n": 5,
+        "values": [
+          31.1115,
+          32.2298,
+          30.6721,
+          31.7419,
+          31.4153
+        ],
+        "worst": 32.2298,
+        "best": 30.6721
+      },
+      "max_wait": {
+        "mean": 37.3341,
+        "std": 2.0678,
+        "n": 5,
+        "values": [
+          39.3757,
+          38.0642,
+          36.6956,
+          38.4719,
+          34.0631
+        ],
+        "worst": 39.3757,
+        "best": 34.0631
+      },
+      "min_wait": {
+        "mean": 0.054,
+        "std": 0.1206,
+        "n": 5,
+        "values": [
+          0.2698,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "worst": 0.2698,
+        "best": 0.0
+      },
+      "std_wait": {
+        "mean": 9.1942,
+        "std": 0.4974,
+        "n": 5,
+        "values": [
+          8.6823,
+          9.7533,
+          8.9526,
+          8.8804,
+          9.7024
+        ],
+        "worst": 9.7533,
+        "best": 8.6823
+      },
+      "mean_ride": {
+        "mean": 13.132,
+        "std": 0.3407,
+        "n": 5,
+        "values": [
+          13.5946,
+          13.3742,
+          12.9875,
+          12.935,
+          12.7687
+        ],
+        "worst": 13.5946,
+        "best": 12.7687
+      },
+      "p95_ride": {
+        "mean": 31.278,
+        "std": 1.733,
+        "n": 5,
+        "values": [
+          33.4605,
+          32.034,
+          29.4584,
+          31.8893,
+          29.5479
+        ],
+        "worst": 33.4605,
+        "best": 29.4584
+      },
+      "mean_detour_ratio": {
+        "mean": 1.3825,
+        "std": 0.019,
+        "n": 5,
+        "values": [
+          1.3913,
+          1.3957,
+          1.3707,
+          1.4,
+          1.355
+        ],
+        "worst": 1.4,
+        "best": 1.355
+      },
+      "p95_detour_ratio": {
+        "mean": 2.185,
+        "std": 0.0699,
+        "n": 5,
+        "values": [
+          2.2394,
+          2.2753,
+          2.1161,
+          2.1669,
+          2.1271
+        ],
+        "worst": 2.2753,
+        "best": 2.1161
+      },
+      "total_distance": {
+        "mean": 3047.9692,
+        "std": 50.2887,
+        "n": 5,
+        "values": [
+          3054.5819,
+          3062.3775,
+          2971.0417,
+          3110.4468,
+          3041.3983
+        ],
+        "worst": 3110.4468,
+        "best": 2971.0417
+      },
+      "loaded_distance": {
+        "mean": 1868.7559,
+        "std": 55.6328,
+        "n": 5,
+        "values": [
+          1907.4979,
+          1909.274,
+          1773.329,
+          1877.283,
+          1876.3954
+        ],
+        "worst": 1909.274,
+        "best": 1773.329
+      },
+      "empty_distance": {
+        "mean": 1179.2134,
+        "std": 35.9473,
+        "n": 5,
+        "values": [
+          1147.084,
+          1153.1034,
+          1197.7126,
+          1233.1639,
+          1165.0029
+        ],
+        "worst": 1233.1639,
+        "best": 1147.084
+      },
+      "deadhead_ratio": {
+        "mean": 0.3869,
+        "std": 0.0123,
+        "n": 5,
+        "values": [
+          0.3755,
+          0.3765,
+          0.4031,
+          0.3965,
+          0.383
+        ],
+        "worst": 0.4031,
+        "best": 0.3755
+      },
+      "improvements": {
+        "mean": 0,
+        "std": 0.0,
+        "n": 5,
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "worst": 0,
+        "best": 0
+      },
+      "mean_latency_ms": {
+        "mean": 2.953,
+        "std": 0.4383,
+        "n": 5,
+        "values": [
+          3.574,
+          2.7881,
+          3.1964,
+          2.4424,
+          2.7643
+        ],
+        "worst": 3.574,
+        "best": 2.4424
+      },
+      "p95_latency_ms": {
+        "mean": 4.5661,
+        "std": 0.0757,
+        "n": 5,
+        "values": [
+          4.585,
+          4.5592,
+          4.6045,
+          4.4413,
+          4.6403
+        ],
+        "worst": 4.6403,
+        "best": 4.4413
+      },
+      "violations_total": {
+        "mean": 20.6,
+        "std": 5.2726,
+        "n": 5,
+        "values": [
+          18,
+          28,
+          15,
+          18,
+          24
+        ],
+        "worst": 28,
+        "best": 15
+      },
+      "violations_wait": {
+        "mean": 19.6,
+        "std": 5.1769,
+        "n": 5,
+        "values": [
+          16,
+          26,
+          14,
+          18,
+          24
+        ],
+        "worst": 26,
+        "best": 14
+      },
+      "violations_ride": {
+        "mean": 1,
+        "std": 1.0,
+        "n": 5,
+        "values": [
+          2,
+          2,
+          1,
+          0,
+          0
+        ],
+        "worst": 2,
+        "best": 0
+      },
+      "mean_wait_excess": {
+        "mean": 2.1863,
+        "std": 0.5366,
+        "n": 5,
+        "values": [
+          2.4606,
+          2.3435,
+          2.0693,
+          2.7322,
+          1.3259
+        ],
+        "worst": 2.7322,
+        "best": 1.3259
+      },
+      "mean_ride_excess": {
+        "mean": 2.2663,
+        "std": 1.9127,
+        "n": 3,
+        "values": [
+          2.9848,
+          3.7157,
+          0.0983
+        ],
+        "worst": 3.7157,
+        "best": 0.0983
+      },
+      "_per_seed": {
+        "100": {
+          "total_requests": 339,
+          "served": 205,
+          "rejected": 134,
+          "service_rate": 0.6047,
+          "mean_wait": 18.3029,
+          "p50_wait": 18.6186,
+          "p95_wait": 31.1115,
+          "max_wait": 39.3757,
+          "min_wait": 0.2698,
+          "std_wait": 8.6823,
+          "mean_ride": 13.5946,
+          "p95_ride": 33.4605,
+          "mean_detour_ratio": 1.3913,
+          "p95_detour_ratio": 2.2394,
+          "total_distance": 3054.5819,
+          "loaded_distance": 1907.4979,
+          "empty_distance": 1147.084,
+          "deadhead_ratio": 0.3755,
+          "improvements": 0,
+          "mean_latency_ms": 3.574,
+          "p95_latency_ms": 4.585,
+          "violations_total": 18,
+          "violations_wait": 16,
+          "violations_ride": 2,
+          "mean_wait_excess": 2.4606,
+          "mean_ride_excess": 2.9848
+        },
+        "101": {
+          "total_requests": 363,
+          "served": 199,
+          "rejected": 164,
+          "service_rate": 0.5482,
+          "mean_wait": 17.6601,
+          "p50_wait": 16.3476,
+          "p95_wait": 32.2298,
+          "max_wait": 38.0642,
+          "min_wait": 0.0,
+          "std_wait": 9.7533,
+          "mean_ride": 13.3742,
+          "p95_ride": 32.034,
+          "mean_detour_ratio": 1.3957,
+          "p95_detour_ratio": 2.2753,
+          "total_distance": 3062.3775,
+          "loaded_distance": 1909.274,
+          "empty_distance": 1153.1034,
+          "deadhead_ratio": 0.3765,
+          "improvements": 0,
+          "mean_latency_ms": 2.7881,
+          "p95_latency_ms": 4.5592,
+          "violations_total": 28,
+          "violations_wait": 26,
+          "violations_ride": 2,
+          "mean_wait_excess": 2.3435,
+          "mean_ride_excess": 3.7157
+        },
+        "102": {
+          "total_requests": 306,
+          "served": 193,
+          "rejected": 113,
+          "service_rate": 0.6307,
+          "mean_wait": 16.491,
+          "p50_wait": 15.537,
+          "p95_wait": 30.6721,
+          "max_wait": 36.6956,
+          "min_wait": 0.0,
+          "std_wait": 8.9526,
+          "mean_ride": 12.9875,
+          "p95_ride": 29.4584,
+          "mean_detour_ratio": 1.3707,
+          "p95_detour_ratio": 2.1161,
+          "total_distance": 2971.0417,
+          "loaded_distance": 1773.329,
+          "empty_distance": 1197.7126,
+          "deadhead_ratio": 0.4031,
+          "improvements": 0,
+          "mean_latency_ms": 3.1964,
+          "p95_latency_ms": 4.6045,
+          "violations_total": 15,
+          "violations_wait": 14,
+          "violations_ride": 1,
+          "mean_wait_excess": 2.0693,
+          "mean_ride_excess": 0.0983
+        },
+        "103": {
+          "total_requests": 340,
+          "served": 218,
+          "rejected": 122,
+          "service_rate": 0.6412,
+          "mean_wait": 18.9883,
+          "p50_wait": 19.4921,
+          "p95_wait": 31.7419,
+          "max_wait": 38.4719,
+          "min_wait": 0.0,
+          "std_wait": 8.8804,
+          "mean_ride": 12.935,
+          "p95_ride": 31.8893,
+          "mean_detour_ratio": 1.4,
+          "p95_detour_ratio": 2.1669,
+          "total_distance": 3110.4468,
+          "loaded_distance": 1877.283,
+          "empty_distance": 1233.1639,
+          "deadhead_ratio": 0.3965,
+          "improvements": 0,
+          "mean_latency_ms": 2.4424,
+          "p95_latency_ms": 4.4413,
+          "violations_total": 18,
+          "violations_wait": 18,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.7322
+        },
+        "104": {
+          "total_requests": 368,
+          "served": 208,
+          "rejected": 160,
+          "service_rate": 0.5652,
+          "mean_wait": 17.6495,
+          "p50_wait": 18.851,
+          "p95_wait": 31.4153,
+          "max_wait": 34.0631,
+          "min_wait": 0.0,
+          "std_wait": 9.7024,
+          "mean_ride": 12.7687,
+          "p95_ride": 29.5479,
+          "mean_detour_ratio": 1.355,
+          "p95_detour_ratio": 2.1271,
+          "total_distance": 3041.3983,
+          "loaded_distance": 1876.3954,
+          "empty_distance": 1165.0029,
+          "deadhead_ratio": 0.383,
+          "improvements": 0,
+          "mean_latency_ms": 2.7643,
+          "p95_latency_ms": 4.6403,
+          "violations_total": 24,
+          "violations_wait": 24,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.3259
+        }
+      },
+      "_wall_seconds": {
+        "mean": 2.1
+      }
+    },
+    "rl+sa (rl_v4)": {
+      "total_requests": {
+        "mean": 343.2,
+        "std": 24.5906,
+        "n": 5,
+        "values": [
+          339,
+          363,
+          306,
+          340,
+          368
+        ],
+        "worst": 368,
+        "best": 306
+      },
+      "served": {
+        "mean": 212.2,
+        "std": 10.4499,
+        "n": 5,
+        "values": [
+          206,
+          212,
+          199,
+          226,
+          218
+        ],
+        "worst": 226,
+        "best": 199
+      },
+      "rejected": {
+        "mean": 131,
+        "std": 20.1866,
+        "n": 5,
+        "values": [
+          133,
+          151,
+          107,
+          114,
+          150
+        ],
+        "worst": 151,
+        "best": 107
+      },
+      "service_rate": {
+        "mean": 0.6198,
+        "std": 0.0358,
+        "n": 5,
+        "values": [
+          0.6077,
+          0.584,
+          0.6503,
+          0.6647,
+          0.5924
+        ],
+        "worst": 0.6647,
+        "best": 0.584
+      },
+      "mean_wait": {
+        "mean": 16.6306,
+        "std": 0.5954,
+        "n": 5,
+        "values": [
+          17.0361,
+          16.4304,
+          16.2238,
+          17.4482,
+          16.0144
+        ],
+        "worst": 17.4482,
+        "best": 16.0144
+      },
+      "p50_wait": {
+        "mean": 16.4779,
+        "std": 1.1612,
+        "n": 5,
+        "values": [
+          16.7059,
+          16.8092,
+          14.7292,
+          17.9288,
+          16.2163
+        ],
+        "worst": 17.9288,
+        "best": 14.7292
+      },
+      "p95_wait": {
+        "mean": 30.1046,
+        "std": 0.6848,
+        "n": 5,
+        "values": [
+          30.2109,
+          30.8554,
+          30.6567,
+          29.4388,
+          29.361
+        ],
+        "worst": 30.8554,
+        "best": 29.361
+      },
+      "max_wait": {
+        "mean": 36.1068,
+        "std": 2.5785,
+        "n": 5,
+        "values": [
+          38.4355,
+          34.971,
+          38.7435,
+          35.8651,
+          32.5191
+        ],
+        "worst": 38.7435,
+        "best": 32.5191
+      },
+      "min_wait": {
+        "mean": 0.4321,
+        "std": 0.9663,
+        "n": 5,
+        "values": [
+          0.0,
+          2.1606,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "worst": 2.1606,
+        "best": 0.0
+      },
+      "std_wait": {
+        "mean": 8.6015,
+        "std": 0.2343,
+        "n": 5,
+        "values": [
+          8.6582,
+          8.3639,
+          8.9651,
+          8.5847,
+          8.4358
+        ],
+        "worst": 8.9651,
+        "best": 8.3639
+      },
+      "mean_ride": {
+        "mean": 12.1442,
+        "std": 0.3065,
+        "n": 5,
+        "values": [
+          12.3131,
+          12.4739,
+          11.7514,
+          11.8932,
+          12.2894
+        ],
+        "worst": 12.4739,
+        "best": 11.7514
+      },
+      "p95_ride": {
+        "mean": 27.9891,
+        "std": 1.7574,
+        "n": 5,
+        "values": [
+          29.4299,
+          29.7097,
+          25.413,
+          27.192,
+          28.2011
+        ],
+        "worst": 29.7097,
+        "best": 25.413
+      },
+      "mean_detour_ratio": {
+        "mean": 1.318,
+        "std": 0.0225,
+        "n": 5,
+        "values": [
+          1.2897,
+          1.3331,
+          1.2995,
+          1.3423,
+          1.3256
+        ],
+        "worst": 1.3423,
+        "best": 1.2897
+      },
+      "p95_detour_ratio": {
+        "mean": 2.0973,
+        "std": 0.0554,
+        "n": 5,
+        "values": [
+          2.0795,
+          2.1279,
+          2.0077,
+          2.1395,
+          2.132
+        ],
+        "worst": 2.1395,
+        "best": 2.0077
+      },
+      "total_distance": {
+        "mean": 3032.4179,
+        "std": 28.4843,
+        "n": 5,
+        "values": [
+          3042.9518,
+          3076.0869,
+          3002.534,
+          3015.8584,
+          3024.6585
+        ],
+        "worst": 3076.0869,
+        "best": 3002.534
+      },
+      "loaded_distance": {
+        "mean": 1855.176,
+        "std": 68.6835,
+        "n": 5,
+        "values": [
+          1867.1324,
+          1903.5555,
+          1738.5525,
+          1858.8155,
+          1907.8242
+        ],
+        "worst": 1907.8242,
+        "best": 1738.5525
+      },
+      "empty_distance": {
+        "mean": 1177.2419,
+        "std": 53.8634,
+        "n": 5,
+        "values": [
+          1175.8194,
+          1172.5314,
+          1263.9815,
+          1157.043,
+          1116.8343
+        ],
+        "worst": 1263.9815,
+        "best": 1116.8343
+      },
+      "deadhead_ratio": {
+        "mean": 0.3883,
+        "std": 0.0194,
+        "n": 5,
+        "values": [
+          0.3864,
+          0.3812,
+          0.421,
+          0.3837,
+          0.3692
+        ],
+        "worst": 0.421,
+        "best": 0.3692
+      },
+      "improvements": {
+        "mean": 69.2,
+        "std": 11.0091,
+        "n": 5,
+        "values": [
+          67,
+          67,
+          53,
+          80,
+          79
+        ],
+        "worst": 80,
+        "best": 53
+      },
+      "mean_latency_ms": {
+        "mean": 40.3731,
+        "std": 4.8496,
+        "n": 5,
+        "values": [
+          40.1913,
+          39.4209,
+          35.7308,
+          48.5006,
+          38.0218
+        ],
+        "worst": 48.5006,
+        "best": 35.7308
+      },
+      "p95_latency_ms": {
+        "mean": 138.4266,
+        "std": 11.7758,
+        "n": 5,
+        "values": [
+          157.0711,
+          136.3351,
+          124.3366,
+          136.4456,
+          137.9446
+        ],
+        "worst": 157.0711,
+        "best": 124.3366
+      },
+      "violations_total": {
+        "mean": 11,
+        "std": 3.0822,
+        "n": 5,
+        "values": [
+          11,
+          13,
+          15,
+          8,
+          8
+        ],
+        "worst": 15,
+        "best": 8
+      },
+      "violations_wait": {
+        "mean": 10.8,
+        "std": 2.7749,
+        "n": 5,
+        "values": [
+          11,
+          13,
+          14,
+          8,
+          8
+        ],
+        "worst": 14,
+        "best": 8
+      },
+      "violations_ride": {
+        "mean": 0.2,
+        "std": 0.4472,
+        "n": 5,
+        "values": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "worst": 1,
+        "best": 0
+      },
+      "mean_wait_excess": {
+        "mean": 1.9028,
+        "std": 0.5581,
+        "n": 5,
+        "values": [
+          2.6273,
+          1.7412,
+          2.0913,
+          1.9615,
+          1.0928
+        ],
+        "worst": 2.6273,
+        "best": 1.0928
+      },
+      "mean_ride_excess": {
+        "mean": 0.2607,
+        "std": 0.0,
+        "n": 1,
+        "values": [
+          0.2607
+        ],
+        "worst": 0.2607,
+        "best": 0.2607
+      },
+      "_per_seed": {
+        "100": {
+          "total_requests": 339,
+          "served": 206,
+          "rejected": 133,
+          "service_rate": 0.6077,
+          "mean_wait": 17.0361,
+          "p50_wait": 16.7059,
+          "p95_wait": 30.2109,
+          "max_wait": 38.4355,
+          "min_wait": 0.0,
+          "std_wait": 8.6582,
+          "mean_ride": 12.3131,
+          "p95_ride": 29.4299,
+          "mean_detour_ratio": 1.2897,
+          "p95_detour_ratio": 2.0795,
+          "total_distance": 3042.9518,
+          "loaded_distance": 1867.1324,
+          "empty_distance": 1175.8194,
+          "deadhead_ratio": 0.3864,
+          "improvements": 67,
+          "mean_latency_ms": 40.1913,
+          "p95_latency_ms": 157.0711,
+          "violations_total": 11,
+          "violations_wait": 11,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.6273
+        },
+        "101": {
+          "total_requests": 363,
+          "served": 212,
+          "rejected": 151,
+          "service_rate": 0.584,
+          "mean_wait": 16.4304,
+          "p50_wait": 16.8092,
+          "p95_wait": 30.8554,
+          "max_wait": 34.971,
+          "min_wait": 2.1606,
+          "std_wait": 8.3639,
+          "mean_ride": 12.4739,
+          "p95_ride": 29.7097,
+          "mean_detour_ratio": 1.3331,
+          "p95_detour_ratio": 2.1279,
+          "total_distance": 3076.0869,
+          "loaded_distance": 1903.5555,
+          "empty_distance": 1172.5314,
+          "deadhead_ratio": 0.3812,
+          "improvements": 67,
+          "mean_latency_ms": 39.4209,
+          "p95_latency_ms": 136.3351,
+          "violations_total": 13,
+          "violations_wait": 13,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.7412
+        },
+        "102": {
+          "total_requests": 306,
+          "served": 199,
+          "rejected": 107,
+          "service_rate": 0.6503,
+          "mean_wait": 16.2238,
+          "p50_wait": 14.7292,
+          "p95_wait": 30.6567,
+          "max_wait": 38.7435,
+          "min_wait": 0.0,
+          "std_wait": 8.9651,
+          "mean_ride": 11.7514,
+          "p95_ride": 25.413,
+          "mean_detour_ratio": 1.2995,
+          "p95_detour_ratio": 2.0077,
+          "total_distance": 3002.534,
+          "loaded_distance": 1738.5525,
+          "empty_distance": 1263.9815,
+          "deadhead_ratio": 0.421,
+          "improvements": 53,
+          "mean_latency_ms": 35.7308,
+          "p95_latency_ms": 124.3366,
+          "violations_total": 15,
+          "violations_wait": 14,
+          "violations_ride": 1,
+          "mean_wait_excess": 2.0913,
+          "mean_ride_excess": 0.2607
+        },
+        "103": {
+          "total_requests": 340,
+          "served": 226,
+          "rejected": 114,
+          "service_rate": 0.6647,
+          "mean_wait": 17.4482,
+          "p50_wait": 17.9288,
+          "p95_wait": 29.4388,
+          "max_wait": 35.8651,
+          "min_wait": 0.0,
+          "std_wait": 8.5847,
+          "mean_ride": 11.8932,
+          "p95_ride": 27.192,
+          "mean_detour_ratio": 1.3423,
+          "p95_detour_ratio": 2.1395,
+          "total_distance": 3015.8584,
+          "loaded_distance": 1858.8155,
+          "empty_distance": 1157.043,
+          "deadhead_ratio": 0.3837,
+          "improvements": 80,
+          "mean_latency_ms": 48.5006,
+          "p95_latency_ms": 136.4456,
+          "violations_total": 8,
+          "violations_wait": 8,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.9615
+        },
+        "104": {
+          "total_requests": 368,
+          "served": 218,
+          "rejected": 150,
+          "service_rate": 0.5924,
+          "mean_wait": 16.0144,
+          "p50_wait": 16.2163,
+          "p95_wait": 29.361,
+          "max_wait": 32.5191,
+          "min_wait": 0.0,
+          "std_wait": 8.4358,
+          "mean_ride": 12.2894,
+          "p95_ride": 28.2011,
+          "mean_detour_ratio": 1.3256,
+          "p95_detour_ratio": 2.132,
+          "total_distance": 3024.6585,
+          "loaded_distance": 1907.8242,
+          "empty_distance": 1116.8343,
+          "deadhead_ratio": 0.3692,
+          "improvements": 79,
+          "mean_latency_ms": 38.0218,
+          "p95_latency_ms": 137.9446,
+          "violations_total": 8,
+          "violations_wait": 8,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.0928
+        }
+      },
+      "_wall_seconds": {
+        "mean": 14.0
+      }
+    },
+    "rl+ts (rl_v4)": {
+      "total_requests": {
+        "mean": 343.2,
+        "std": 24.5906,
+        "n": 5,
+        "values": [
+          339,
+          363,
+          306,
+          340,
+          368
+        ],
+        "worst": 368,
+        "best": 306
+      },
+      "served": {
+        "mean": 218.2,
+        "std": 9.2033,
+        "n": 5,
+        "values": [
+          220,
+          221,
+          203,
+          228,
+          219
+        ],
+        "worst": 228,
+        "best": 203
+      },
+      "rejected": {
+        "mean": 125,
+        "std": 19.7104,
+        "n": 5,
+        "values": [
+          119,
+          142,
+          103,
+          112,
+          149
+        ],
+        "worst": 149,
+        "best": 103
+      },
+      "service_rate": {
+        "mean": 0.6374,
+        "std": 0.0336,
+        "n": 5,
+        "values": [
+          0.649,
+          0.6088,
+          0.6634,
+          0.6706,
+          0.5951
+        ],
+        "worst": 0.6706,
+        "best": 0.5951
+      },
+      "mean_wait": {
+        "mean": 15.2648,
+        "std": 0.9664,
+        "n": 5,
+        "values": [
+          16.3224,
+          15.6857,
+          14.4633,
+          15.8119,
+          14.0407
+        ],
+        "worst": 16.3224,
+        "best": 14.0407
+      },
+      "p50_wait": {
+        "mean": 14.2297,
+        "std": 1.0935,
+        "n": 5,
+        "values": [
+          15.8564,
+          13.993,
+          13.0707,
+          14.7102,
+          13.5183
+        ],
+        "worst": 15.8564,
+        "best": 13.0707
+      },
+      "p95_wait": {
+        "mean": 29.8546,
+        "std": 1.1716,
+        "n": 5,
+        "values": [
+          29.8637,
+          30.8588,
+          31.1182,
+          29.0994,
+          28.3331
+        ],
+        "worst": 31.1182,
+        "best": 28.3331
+      },
+      "max_wait": {
+        "mean": 34.7849,
+        "std": 1.8553,
+        "n": 5,
+        "values": [
+          36.9849,
+          33.1192,
+          36.411,
+          32.9377,
+          34.4719
+        ],
+        "worst": 36.9849,
+        "best": 32.9377
+      },
+      "min_wait": {
+        "mean": 0.4357,
+        "std": 0.7924,
+        "n": 5,
+        "values": [
+          1.8267,
+          0.3519,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "worst": 1.8267,
+        "best": 0.0
+      },
+      "std_wait": {
+        "mean": 8.3932,
+        "std": 0.3012,
+        "n": 5,
+        "values": [
+          8.24,
+          8.8536,
+          8.5363,
+          8.1157,
+          8.2201
+        ],
+        "worst": 8.8536,
+        "best": 8.1157
+      },
+      "mean_ride": {
+        "mean": 12.3128,
+        "std": 0.2307,
+        "n": 5,
+        "values": [
+          12.3345,
+          12.0961,
+          12.3283,
+          12.1296,
+          12.6756
+        ],
+        "worst": 12.6756,
+        "best": 12.0961
+      },
+      "p95_ride": {
+        "mean": 26.7967,
+        "std": 1.5343,
+        "n": 5,
+        "values": [
+          26.9414,
+          25.1196,
+          25.3598,
+          28.5149,
+          28.0481
+        ],
+        "worst": 28.5149,
+        "best": 25.1196
+      },
+      "mean_detour_ratio": {
+        "mean": 1.3234,
+        "std": 0.0168,
+        "n": 5,
+        "values": [
+          1.3032,
+          1.3124,
+          1.3248,
+          1.3472,
+          1.3292
+        ],
+        "worst": 1.3472,
+        "best": 1.3032
+      },
+      "p95_detour_ratio": {
+        "mean": 2.078,
+        "std": 0.0473,
+        "n": 5,
+        "values": [
+          2.0196,
+          2.1341,
+          2.067,
+          2.0518,
+          2.1177
+        ],
+        "worst": 2.1341,
+        "best": 2.0196
+      },
+      "total_distance": {
+        "mean": 2929.5716,
+        "std": 49.8653,
+        "n": 5,
+        "values": [
+          2920.9735,
+          2986.4388,
+          2861.71,
+          2969.7096,
+          2909.026
+        ],
+        "worst": 2986.4388,
+        "best": 2861.71
+      },
+      "loaded_distance": {
+        "mean": 1869.8943,
+        "std": 66.026,
+        "n": 5,
+        "values": [
+          1910.7071,
+          1876.933,
+          1754.0914,
+          1905.1965,
+          1902.5433
+        ],
+        "worst": 1910.7071,
+        "best": 1754.0914
+      },
+      "empty_distance": {
+        "mean": 1059.6773,
+        "std": 50.189,
+        "n": 5,
+        "values": [
+          1010.2664,
+          1109.5058,
+          1107.6186,
+          1064.5131,
+          1006.4827
+        ],
+        "worst": 1109.5058,
+        "best": 1006.4827
+      },
+      "deadhead_ratio": {
+        "mean": 0.3618,
+        "std": 0.0177,
+        "n": 5,
+        "values": [
+          0.3459,
+          0.3715,
+          0.387,
+          0.3585,
+          0.346
+        ],
+        "worst": 0.387,
+        "best": 0.3459
+      },
+      "improvements": {
+        "mean": 120,
+        "std": 10.6066,
+        "n": 5,
+        "values": [
+          132,
+          118,
+          109,
+          130,
+          111
+        ],
+        "worst": 132,
+        "best": 109
+      },
+      "mean_latency_ms": {
+        "mean": 23.0301,
+        "std": 3.8,
+        "n": 5,
+        "values": [
+          29.0215,
+          24.378,
+          20.7904,
+          21.4876,
+          19.4732
+        ],
+        "worst": 29.0215,
+        "best": 19.4732
+      },
+      "p95_latency_ms": {
+        "mean": 86.0783,
+        "std": 22.9348,
+        "n": 5,
+        "values": [
+          118.2878,
+          96.6887,
+          86.2745,
+          60.7787,
+          68.3619
+        ],
+        "worst": 118.2878,
+        "best": 60.7787
+      },
+      "violations_total": {
+        "mean": 10.2,
+        "std": 4.6043,
+        "n": 5,
+        "values": [
+          10,
+          16,
+          13,
+          8,
+          4
+        ],
+        "worst": 16,
+        "best": 4
+      },
+      "violations_wait": {
+        "mean": 10,
+        "std": 4.9497,
+        "n": 5,
+        "values": [
+          10,
+          16,
+          13,
+          8,
+          3
+        ],
+        "worst": 16,
+        "best": 3
+      },
+      "violations_ride": {
+        "mean": 0.2,
+        "std": 0.4472,
+        "n": 5,
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "worst": 1,
+        "best": 0
+      },
+      "mean_wait_excess": {
+        "mean": 1.8795,
+        "std": 0.5988,
+        "n": 5,
+        "values": [
+          2.6299,
+          1.3756,
+          2.2122,
+          1.1784,
+          2.0014
+        ],
+        "worst": 2.6299,
+        "best": 1.1784
+      },
+      "mean_ride_excess": {
+        "mean": 1.6016,
+        "std": 0.0,
+        "n": 1,
+        "values": [
+          1.6016
+        ],
+        "worst": 1.6016,
+        "best": 1.6016
+      },
+      "_per_seed": {
+        "100": {
+          "total_requests": 339,
+          "served": 220,
+          "rejected": 119,
+          "service_rate": 0.649,
+          "mean_wait": 16.3224,
+          "p50_wait": 15.8564,
+          "p95_wait": 29.8637,
+          "max_wait": 36.9849,
+          "min_wait": 1.8267,
+          "std_wait": 8.24,
+          "mean_ride": 12.3345,
+          "p95_ride": 26.9414,
+          "mean_detour_ratio": 1.3032,
+          "p95_detour_ratio": 2.0196,
+          "total_distance": 2920.9735,
+          "loaded_distance": 1910.7071,
+          "empty_distance": 1010.2664,
+          "deadhead_ratio": 0.3459,
+          "improvements": 132,
+          "mean_latency_ms": 29.0215,
+          "p95_latency_ms": 118.2878,
+          "violations_total": 10,
+          "violations_wait": 10,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.6299
+        },
+        "101": {
+          "total_requests": 363,
+          "served": 221,
+          "rejected": 142,
+          "service_rate": 0.6088,
+          "mean_wait": 15.6857,
+          "p50_wait": 13.993,
+          "p95_wait": 30.8588,
+          "max_wait": 33.1192,
+          "min_wait": 0.3519,
+          "std_wait": 8.8536,
+          "mean_ride": 12.0961,
+          "p95_ride": 25.1196,
+          "mean_detour_ratio": 1.3124,
+          "p95_detour_ratio": 2.1341,
+          "total_distance": 2986.4388,
+          "loaded_distance": 1876.933,
+          "empty_distance": 1109.5058,
+          "deadhead_ratio": 0.3715,
+          "improvements": 118,
+          "mean_latency_ms": 24.378,
+          "p95_latency_ms": 96.6887,
+          "violations_total": 16,
+          "violations_wait": 16,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.3756
+        },
+        "102": {
+          "total_requests": 306,
+          "served": 203,
+          "rejected": 103,
+          "service_rate": 0.6634,
+          "mean_wait": 14.4633,
+          "p50_wait": 13.0707,
+          "p95_wait": 31.1182,
+          "max_wait": 36.411,
+          "min_wait": 0.0,
+          "std_wait": 8.5363,
+          "mean_ride": 12.3283,
+          "p95_ride": 25.3598,
+          "mean_detour_ratio": 1.3248,
+          "p95_detour_ratio": 2.067,
+          "total_distance": 2861.71,
+          "loaded_distance": 1754.0914,
+          "empty_distance": 1107.6186,
+          "deadhead_ratio": 0.387,
+          "improvements": 109,
+          "mean_latency_ms": 20.7904,
+          "p95_latency_ms": 86.2745,
+          "violations_total": 13,
+          "violations_wait": 13,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.2122
+        },
+        "103": {
+          "total_requests": 340,
+          "served": 228,
+          "rejected": 112,
+          "service_rate": 0.6706,
+          "mean_wait": 15.8119,
+          "p50_wait": 14.7102,
+          "p95_wait": 29.0994,
+          "max_wait": 32.9377,
+          "min_wait": 0.0,
+          "std_wait": 8.1157,
+          "mean_ride": 12.1296,
+          "p95_ride": 28.5149,
+          "mean_detour_ratio": 1.3472,
+          "p95_detour_ratio": 2.0518,
+          "total_distance": 2969.7096,
+          "loaded_distance": 1905.1965,
+          "empty_distance": 1064.5131,
+          "deadhead_ratio": 0.3585,
+          "improvements": 130,
+          "mean_latency_ms": 21.4876,
+          "p95_latency_ms": 60.7787,
+          "violations_total": 8,
+          "violations_wait": 8,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.1784
+        },
+        "104": {
+          "total_requests": 368,
+          "served": 219,
+          "rejected": 149,
+          "service_rate": 0.5951,
+          "mean_wait": 14.0407,
+          "p50_wait": 13.5183,
+          "p95_wait": 28.3331,
+          "max_wait": 34.4719,
+          "min_wait": 0.0,
+          "std_wait": 8.2201,
+          "mean_ride": 12.6756,
+          "p95_ride": 28.0481,
+          "mean_detour_ratio": 1.3292,
+          "p95_detour_ratio": 2.1177,
+          "total_distance": 2909.026,
+          "loaded_distance": 1902.5433,
+          "empty_distance": 1006.4827,
+          "deadhead_ratio": 0.346,
+          "improvements": 111,
+          "mean_latency_ms": 19.4732,
+          "p95_latency_ms": 68.3619,
+          "violations_total": 4,
+          "violations_wait": 3,
+          "violations_ride": 1,
+          "mean_wait_excess": 2.0014,
+          "mean_ride_excess": 1.6016
+        }
+      },
+      "_wall_seconds": {
+        "mean": 8.0
+      }
+    },
+    "rl+ga (rl_v4)": {
+      "total_requests": {
+        "mean": 343.2,
+        "std": 24.5906,
+        "n": 5,
+        "values": [
+          339,
+          363,
+          306,
+          340,
+          368
+        ],
+        "worst": 368,
+        "best": 306
+      },
+      "served": {
+        "mean": 216.2,
+        "std": 8.7006,
+        "n": 5,
+        "values": [
+          217,
+          216,
+          202,
+          225,
+          221
+        ],
+        "worst": 225,
+        "best": 202
+      },
+      "rejected": {
+        "mean": 127,
+        "std": 19.352,
+        "n": 5,
+        "values": [
+          122,
+          147,
+          104,
+          115,
+          147
+        ],
+        "worst": 147,
+        "best": 104
+      },
+      "service_rate": {
+        "mean": 0.6315,
+        "std": 0.032,
+        "n": 5,
+        "values": [
+          0.6401,
+          0.595,
+          0.6601,
+          0.6618,
+          0.6005
+        ],
+        "worst": 0.6618,
+        "best": 0.595
+      },
+      "mean_wait": {
+        "mean": 15.3265,
+        "std": 0.4978,
+        "n": 5,
+        "values": [
+          14.9107,
+          15.4188,
+          14.7271,
+          15.6771,
+          15.899
+        ],
+        "worst": 15.899,
+        "best": 14.7271
+      },
+      "p50_wait": {
+        "mean": 14.0995,
+        "std": 1.1543,
+        "n": 5,
+        "values": [
+          13.2652,
+          13.4756,
+          13.1867,
+          14.7371,
+          15.8329
+        ],
+        "worst": 15.8329,
+        "best": 13.1867
+      },
+      "p95_wait": {
+        "mean": 30.1794,
+        "std": 0.9065,
+        "n": 5,
+        "values": [
+          28.6672,
+          30.0967,
+          31.001,
+          30.6643,
+          30.4678
+        ],
+        "worst": 31.001,
+        "best": 28.6672
+      },
+      "max_wait": {
+        "mean": 35.1323,
+        "std": 1.1002,
+        "n": 5,
+        "values": [
+          34.5319,
+          33.8318,
+          36.411,
+          36.1367,
+          34.75
+        ],
+        "worst": 36.411,
+        "best": 33.8318
+      },
+      "min_wait": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 5,
+        "values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "worst": 0.0,
+        "best": 0.0
+      },
+      "std_wait": {
+        "mean": 8.8723,
+        "std": 0.3851,
+        "n": 5,
+        "values": [
+          8.5384,
+          9.2009,
+          8.8236,
+          8.4693,
+          9.3295
+        ],
+        "worst": 9.3295,
+        "best": 8.4693
+      },
+      "mean_ride": {
+        "mean": 12.382,
+        "std": 0.528,
+        "n": 5,
+        "values": [
+          12.4869,
+          12.7267,
+          12.7313,
+          11.461,
+          12.504
+        ],
+        "worst": 12.7313,
+        "best": 11.461
+      },
+      "p95_ride": {
+        "mean": 28.8457,
+        "std": 2.0429,
+        "n": 5,
+        "values": [
+          30.5337,
+          28.0936,
+          29.1715,
+          25.7272,
+          30.7025
+        ],
+        "worst": 30.7025,
+        "best": 25.7272
+      },
+      "mean_detour_ratio": {
+        "mean": 1.335,
+        "std": 0.0215,
+        "n": 5,
+        "values": [
+          1.3359,
+          1.3459,
+          1.3644,
+          1.3172,
+          1.3117
+        ],
+        "worst": 1.3644,
+        "best": 1.3117
+      },
+      "p95_detour_ratio": {
+        "mean": 2.0962,
+        "std": 0.0579,
+        "n": 5,
+        "values": [
+          2.1234,
+          2.1033,
+          2.1565,
+          2.0015,
+          2.0965
+        ],
+        "worst": 2.1565,
+        "best": 2.0015
+      },
+      "total_distance": {
+        "mean": 2920.546,
+        "std": 55.663,
+        "n": 5,
+        "values": [
+          2904.2641,
+          2936.7385,
+          2841.2847,
+          2995.1182,
+          2925.3245
+        ],
+        "worst": 2995.1182,
+        "best": 2841.2847
+      },
+      "loaded_distance": {
+        "mean": 1867.2783,
+        "std": 49.0073,
+        "n": 5,
+        "values": [
+          1922.743,
+          1898.7466,
+          1826.9218,
+          1806.3938,
+          1881.586
+        ],
+        "worst": 1922.743,
+        "best": 1806.3938
+      },
+      "empty_distance": {
+        "mean": 1053.2677,
+        "std": 79.583,
+        "n": 5,
+        "values": [
+          981.5211,
+          1037.9919,
+          1014.3628,
+          1188.7243,
+          1043.7385
+        ],
+        "worst": 1188.7243,
+        "best": 981.5211
+      },
+      "deadhead_ratio": {
+        "mean": 0.3604,
+        "std": 0.0218,
+        "n": 5,
+        "values": [
+          0.338,
+          0.3535,
+          0.357,
+          0.3969,
+          0.3568
+        ],
+        "worst": 0.3969,
+        "best": 0.338
+      },
+      "improvements": {
+        "mean": 121,
+        "std": 7.5829,
+        "n": 5,
+        "values": [
+          129,
+          119,
+          114,
+          129,
+          114
+        ],
+        "worst": 129,
+        "best": 114
+      },
+      "mean_latency_ms": {
+        "mean": 83.6452,
+        "std": 7.5869,
+        "n": 5,
+        "values": [
+          86.3533,
+          80.8999,
+          75.9658,
+          79.5464,
+          95.4604
+        ],
+        "worst": 95.4604,
+        "best": 75.9658
+      },
+      "p95_latency_ms": {
+        "mean": 357.6214,
+        "std": 59.7551,
+        "n": 5,
+        "values": [
+          335.6409,
+          342.8974,
+          335.6881,
+          311.5,
+          462.3806
+        ],
+        "worst": 462.3806,
+        "best": 311.5
+      },
+      "violations_total": {
+        "mean": 13.6,
+        "std": 2.51,
+        "n": 5,
+        "values": [
+          10,
+          14,
+          17,
+          14,
+          13
+        ],
+        "worst": 17,
+        "best": 10
+      },
+      "violations_wait": {
+        "mean": 12.4,
+        "std": 3.0496,
+        "n": 5,
+        "values": [
+          8,
+          11,
+          16,
+          14,
+          13
+        ],
+        "worst": 16,
+        "best": 8
+      },
+      "violations_ride": {
+        "mean": 1.2,
+        "std": 1.3038,
+        "n": 5,
+        "values": [
+          2,
+          3,
+          1,
+          0,
+          0
+        ],
+        "worst": 3,
+        "best": 0
+      },
+      "mean_wait_excess": {
+        "mean": 1.9411,
+        "std": 0.5254,
+        "n": 5,
+        "values": [
+          2.002,
+          1.9781,
+          1.6587,
+          2.7413,
+          1.3255
+        ],
+        "worst": 2.7413,
+        "best": 1.3255
+      },
+      "mean_ride_excess": {
+        "mean": 2.9697,
+        "std": 0.8369,
+        "n": 3,
+        "values": [
+          2.7345,
+          3.899,
+          2.2755
+        ],
+        "worst": 3.899,
+        "best": 2.2755
+      },
+      "_per_seed": {
+        "100": {
+          "total_requests": 339,
+          "served": 217,
+          "rejected": 122,
+          "service_rate": 0.6401,
+          "mean_wait": 14.9107,
+          "p50_wait": 13.2652,
+          "p95_wait": 28.6672,
+          "max_wait": 34.5319,
+          "min_wait": 0.0,
+          "std_wait": 8.5384,
+          "mean_ride": 12.4869,
+          "p95_ride": 30.5337,
+          "mean_detour_ratio": 1.3359,
+          "p95_detour_ratio": 2.1234,
+          "total_distance": 2904.2641,
+          "loaded_distance": 1922.743,
+          "empty_distance": 981.5211,
+          "deadhead_ratio": 0.338,
+          "improvements": 129,
+          "mean_latency_ms": 86.3533,
+          "p95_latency_ms": 335.6409,
+          "violations_total": 10,
+          "violations_wait": 8,
+          "violations_ride": 2,
+          "mean_wait_excess": 2.002,
+          "mean_ride_excess": 2.7345
+        },
+        "101": {
+          "total_requests": 363,
+          "served": 216,
+          "rejected": 147,
+          "service_rate": 0.595,
+          "mean_wait": 15.4188,
+          "p50_wait": 13.4756,
+          "p95_wait": 30.0967,
+          "max_wait": 33.8318,
+          "min_wait": 0.0,
+          "std_wait": 9.2009,
+          "mean_ride": 12.7267,
+          "p95_ride": 28.0936,
+          "mean_detour_ratio": 1.3459,
+          "p95_detour_ratio": 2.1033,
+          "total_distance": 2936.7385,
+          "loaded_distance": 1898.7466,
+          "empty_distance": 1037.9919,
+          "deadhead_ratio": 0.3535,
+          "improvements": 119,
+          "mean_latency_ms": 80.8999,
+          "p95_latency_ms": 342.8974,
+          "violations_total": 14,
+          "violations_wait": 11,
+          "violations_ride": 3,
+          "mean_wait_excess": 1.9781,
+          "mean_ride_excess": 3.899
+        },
+        "102": {
+          "total_requests": 306,
+          "served": 202,
+          "rejected": 104,
+          "service_rate": 0.6601,
+          "mean_wait": 14.7271,
+          "p50_wait": 13.1867,
+          "p95_wait": 31.001,
+          "max_wait": 36.411,
+          "min_wait": 0.0,
+          "std_wait": 8.8236,
+          "mean_ride": 12.7313,
+          "p95_ride": 29.1715,
+          "mean_detour_ratio": 1.3644,
+          "p95_detour_ratio": 2.1565,
+          "total_distance": 2841.2847,
+          "loaded_distance": 1826.9218,
+          "empty_distance": 1014.3628,
+          "deadhead_ratio": 0.357,
+          "improvements": 114,
+          "mean_latency_ms": 75.9658,
+          "p95_latency_ms": 335.6881,
+          "violations_total": 17,
+          "violations_wait": 16,
+          "violations_ride": 1,
+          "mean_wait_excess": 1.6587,
+          "mean_ride_excess": 2.2755
+        },
+        "103": {
+          "total_requests": 340,
+          "served": 225,
+          "rejected": 115,
+          "service_rate": 0.6618,
+          "mean_wait": 15.6771,
+          "p50_wait": 14.7371,
+          "p95_wait": 30.6643,
+          "max_wait": 36.1367,
+          "min_wait": 0.0,
+          "std_wait": 8.4693,
+          "mean_ride": 11.461,
+          "p95_ride": 25.7272,
+          "mean_detour_ratio": 1.3172,
+          "p95_detour_ratio": 2.0015,
+          "total_distance": 2995.1182,
+          "loaded_distance": 1806.3938,
+          "empty_distance": 1188.7243,
+          "deadhead_ratio": 0.3969,
+          "improvements": 129,
+          "mean_latency_ms": 79.5464,
+          "p95_latency_ms": 311.5,
+          "violations_total": 14,
+          "violations_wait": 14,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.7413
+        },
+        "104": {
+          "total_requests": 368,
+          "served": 221,
+          "rejected": 147,
+          "service_rate": 0.6005,
+          "mean_wait": 15.899,
+          "p50_wait": 15.8329,
+          "p95_wait": 30.4678,
+          "max_wait": 34.75,
+          "min_wait": 0.0,
+          "std_wait": 9.3295,
+          "mean_ride": 12.504,
+          "p95_ride": 30.7025,
+          "mean_detour_ratio": 1.3117,
+          "p95_detour_ratio": 2.0965,
+          "total_distance": 2925.3245,
+          "loaded_distance": 1881.586,
+          "empty_distance": 1043.7385,
+          "deadhead_ratio": 0.3568,
+          "improvements": 114,
+          "mean_latency_ms": 95.4604,
+          "p95_latency_ms": 462.3806,
+          "violations_total": 13,
+          "violations_wait": 13,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.3255
+        }
+      },
+      "_wall_seconds": {
+        "mean": 28.9
+      }
+    },
+    "rl+alns (rl_v4)": {
+      "total_requests": {
+        "mean": 343.2,
+        "std": 24.5906,
+        "n": 5,
+        "values": [
+          339,
+          363,
+          306,
+          340,
+          368
+        ],
+        "worst": 368,
+        "best": 306
+      },
+      "served": {
+        "mean": 221.2,
+        "std": 10.0349,
+        "n": 5,
+        "values": [
+          228,
+          229,
+          205,
+          226,
+          218
+        ],
+        "worst": 229,
+        "best": 205
+      },
+      "rejected": {
+        "mean": 122,
+        "std": 19.7104,
+        "n": 5,
+        "values": [
+          111,
+          134,
+          101,
+          114,
+          150
+        ],
+        "worst": 150,
+        "best": 101
+      },
+      "service_rate": {
+        "mean": 0.6461,
+        "std": 0.0344,
+        "n": 5,
+        "values": [
+          0.6726,
+          0.6309,
+          0.6699,
+          0.6647,
+          0.5924
+        ],
+        "worst": 0.6726,
+        "best": 0.5924
+      },
+      "mean_wait": {
+        "mean": 15.5451,
+        "std": 0.5904,
+        "n": 5,
+        "values": [
+          16.2363,
+          15.7952,
+          14.6383,
+          15.6528,
+          15.4031
+        ],
+        "worst": 16.2363,
+        "best": 14.6383
+      },
+      "p50_wait": {
+        "mean": 14.3085,
+        "std": 0.924,
+        "n": 5,
+        "values": [
+          15.301,
+          15.2468,
+          13.567,
+          14.0968,
+          13.3311
+        ],
+        "worst": 15.301,
+        "best": 13.3311
+      },
+      "p95_wait": {
+        "mean": 29.969,
+        "std": 0.5801,
+        "n": 5,
+        "values": [
+          30.0452,
+          29.1086,
+          29.7393,
+          30.3471,
+          30.6047
+        ],
+        "worst": 30.6047,
+        "best": 29.1086
+      },
+      "max_wait": {
+        "mean": 34.6021,
+        "std": 0.7534,
+        "n": 5,
+        "values": [
+          34.5728,
+          33.6124,
+          34.4816,
+          35.7314,
+          34.6125
+        ],
+        "worst": 35.7314,
+        "best": 33.6124
+      },
+      "min_wait": {
+        "mean": 0.4864,
+        "std": 0.6051,
+        "n": 5,
+        "values": [
+          1.1466,
+          1.1459,
+          0.0,
+          0.0,
+          0.1393
+        ],
+        "worst": 1.1466,
+        "best": 0.0
+      },
+      "std_wait": {
+        "mean": 8.3827,
+        "std": 0.2411,
+        "n": 5,
+        "values": [
+          8.3267,
+          8.3555,
+          8.095,
+          8.3717,
+          8.7646
+        ],
+        "worst": 8.7646,
+        "best": 8.095
+      },
+      "mean_ride": {
+        "mean": 12.5681,
+        "std": 0.6705,
+        "n": 5,
+        "values": [
+          12.2304,
+          13.5638,
+          12.8334,
+          11.7934,
+          12.4194
+        ],
+        "worst": 13.5638,
+        "best": 11.7934
+      },
+      "p95_ride": {
+        "mean": 28.3555,
+        "std": 2.1509,
+        "n": 5,
+        "values": [
+          28.4853,
+          31.8978,
+          27.0652,
+          26.3164,
+          28.0129
+        ],
+        "worst": 31.8978,
+        "best": 26.3164
+      },
+      "mean_detour_ratio": {
+        "mean": 1.3284,
+        "std": 0.0259,
+        "n": 5,
+        "values": [
+          1.2887,
+          1.3531,
+          1.3445,
+          1.3387,
+          1.3169
+        ],
+        "worst": 1.3531,
+        "best": 1.2887
+      },
+      "p95_detour_ratio": {
+        "mean": 2.0582,
+        "std": 0.0919,
+        "n": 5,
+        "values": [
+          1.9939,
+          2.1812,
+          1.9442,
+          2.0895,
+          2.082
+        ],
+        "worst": 2.1812,
+        "best": 1.9442
+      },
+      "total_distance": {
+        "mean": 2992.1861,
+        "std": 52.7091,
+        "n": 5,
+        "values": [
+          2967.6989,
+          3057.3768,
+          2936.2652,
+          3038.6574,
+          2960.9323
+        ],
+        "worst": 3057.3768,
+        "best": 2936.2652
+      },
+      "loaded_distance": {
+        "mean": 1911.5062,
+        "std": 79.4531,
+        "n": 5,
+        "values": [
+          1927.6536,
+          2031.8881,
+          1825.1893,
+          1916.2945,
+          1856.5054
+        ],
+        "worst": 2031.8881,
+        "best": 1825.1893
+      },
+      "empty_distance": {
+        "mean": 1080.6799,
+        "std": 44.5043,
+        "n": 5,
+        "values": [
+          1040.0453,
+          1025.4887,
+          1111.0758,
+          1122.3629,
+          1104.4269
+        ],
+        "worst": 1122.3629,
+        "best": 1025.4887
+      },
+      "deadhead_ratio": {
+        "mean": 0.3613,
+        "std": 0.0179,
+        "n": 5,
+        "values": [
+          0.3505,
+          0.3354,
+          0.3784,
+          0.3694,
+          0.373
+        ],
+        "worst": 0.3784,
+        "best": 0.3354
+      },
+      "improvements": {
+        "mean": 103.6,
+        "std": 14.9432,
+        "n": 5,
+        "values": [
+          121,
+          111,
+          86,
+          110,
+          90
+        ],
+        "worst": 121,
+        "best": 86
+      },
+      "mean_latency_ms": {
+        "mean": 39.6073,
+        "std": 8.0834,
+        "n": 5,
+        "values": [
+          50.016,
+          46.467,
+          31.7871,
+          35.1815,
+          34.585
+        ],
+        "worst": 50.016,
+        "best": 31.7871
+      },
+      "p95_latency_ms": {
+        "mean": 154.2717,
+        "std": 34.979,
+        "n": 5,
+        "values": [
+          182.8716,
+          196.1132,
+          122.4065,
+          118.1608,
+          151.8066
+        ],
+        "worst": 196.1132,
+        "best": 118.1608
+      },
+      "violations_total": {
+        "mean": 10.8,
+        "std": 2.6833,
+        "n": 5,
+        "values": [
+          12,
+          8,
+          8,
+          14,
+          12
+        ],
+        "worst": 14,
+        "best": 8
+      },
+      "violations_wait": {
+        "mean": 10.2,
+        "std": 3.0332,
+        "n": 5,
+        "values": [
+          12,
+          6,
+          8,
+          13,
+          12
+        ],
+        "worst": 13,
+        "best": 6
+      },
+      "violations_ride": {
+        "mean": 0.6,
+        "std": 0.8944,
+        "n": 5,
+        "values": [
+          0,
+          2,
+          0,
+          1,
+          0
+        ],
+        "worst": 2,
+        "best": 0
+      },
+      "mean_wait_excess": {
+        "mean": 2.0097,
+        "std": 0.3886,
+        "n": 5,
+        "values": [
+          1.4406,
+          1.8298,
+          2.4375,
+          2.2515,
+          2.0889
+        ],
+        "worst": 2.4375,
+        "best": 1.4406
+      },
+      "mean_ride_excess": {
+        "mean": 3.5321,
+        "std": 2.4239,
+        "n": 2,
+        "values": [
+          5.2461,
+          1.8182
+        ],
+        "worst": 5.2461,
+        "best": 1.8182
+      },
+      "_per_seed": {
+        "100": {
+          "total_requests": 339,
+          "served": 228,
+          "rejected": 111,
+          "service_rate": 0.6726,
+          "mean_wait": 16.2363,
+          "p50_wait": 15.301,
+          "p95_wait": 30.0452,
+          "max_wait": 34.5728,
+          "min_wait": 1.1466,
+          "std_wait": 8.3267,
+          "mean_ride": 12.2304,
+          "p95_ride": 28.4853,
+          "mean_detour_ratio": 1.2887,
+          "p95_detour_ratio": 1.9939,
+          "total_distance": 2967.6989,
+          "loaded_distance": 1927.6536,
+          "empty_distance": 1040.0453,
+          "deadhead_ratio": 0.3505,
+          "improvements": 121,
+          "mean_latency_ms": 50.016,
+          "p95_latency_ms": 182.8716,
+          "violations_total": 12,
+          "violations_wait": 12,
+          "violations_ride": 0,
+          "mean_wait_excess": 1.4406
+        },
+        "101": {
+          "total_requests": 363,
+          "served": 229,
+          "rejected": 134,
+          "service_rate": 0.6309,
+          "mean_wait": 15.7952,
+          "p50_wait": 15.2468,
+          "p95_wait": 29.1086,
+          "max_wait": 33.6124,
+          "min_wait": 1.1459,
+          "std_wait": 8.3555,
+          "mean_ride": 13.5638,
+          "p95_ride": 31.8978,
+          "mean_detour_ratio": 1.3531,
+          "p95_detour_ratio": 2.1812,
+          "total_distance": 3057.3768,
+          "loaded_distance": 2031.8881,
+          "empty_distance": 1025.4887,
+          "deadhead_ratio": 0.3354,
+          "improvements": 111,
+          "mean_latency_ms": 46.467,
+          "p95_latency_ms": 196.1132,
+          "violations_total": 8,
+          "violations_wait": 6,
+          "violations_ride": 2,
+          "mean_wait_excess": 1.8298,
+          "mean_ride_excess": 5.2461
+        },
+        "102": {
+          "total_requests": 306,
+          "served": 205,
+          "rejected": 101,
+          "service_rate": 0.6699,
+          "mean_wait": 14.6383,
+          "p50_wait": 13.567,
+          "p95_wait": 29.7393,
+          "max_wait": 34.4816,
+          "min_wait": 0.0,
+          "std_wait": 8.095,
+          "mean_ride": 12.8334,
+          "p95_ride": 27.0652,
+          "mean_detour_ratio": 1.3445,
+          "p95_detour_ratio": 1.9442,
+          "total_distance": 2936.2652,
+          "loaded_distance": 1825.1893,
+          "empty_distance": 1111.0758,
+          "deadhead_ratio": 0.3784,
+          "improvements": 86,
+          "mean_latency_ms": 31.7871,
+          "p95_latency_ms": 122.4065,
+          "violations_total": 8,
+          "violations_wait": 8,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.4375
+        },
+        "103": {
+          "total_requests": 340,
+          "served": 226,
+          "rejected": 114,
+          "service_rate": 0.6647,
+          "mean_wait": 15.6528,
+          "p50_wait": 14.0968,
+          "p95_wait": 30.3471,
+          "max_wait": 35.7314,
+          "min_wait": 0.0,
+          "std_wait": 8.3717,
+          "mean_ride": 11.7934,
+          "p95_ride": 26.3164,
+          "mean_detour_ratio": 1.3387,
+          "p95_detour_ratio": 2.0895,
+          "total_distance": 3038.6574,
+          "loaded_distance": 1916.2945,
+          "empty_distance": 1122.3629,
+          "deadhead_ratio": 0.3694,
+          "improvements": 110,
+          "mean_latency_ms": 35.1815,
+          "p95_latency_ms": 118.1608,
+          "violations_total": 14,
+          "violations_wait": 13,
+          "violations_ride": 1,
+          "mean_wait_excess": 2.2515,
+          "mean_ride_excess": 1.8182
+        },
+        "104": {
+          "total_requests": 368,
+          "served": 218,
+          "rejected": 150,
+          "service_rate": 0.5924,
+          "mean_wait": 15.4031,
+          "p50_wait": 13.3311,
+          "p95_wait": 30.6047,
+          "max_wait": 34.6125,
+          "min_wait": 0.1393,
+          "std_wait": 8.7646,
+          "mean_ride": 12.4194,
+          "p95_ride": 28.0129,
+          "mean_detour_ratio": 1.3169,
+          "p95_detour_ratio": 2.082,
+          "total_distance": 2960.9323,
+          "loaded_distance": 1856.5054,
+          "empty_distance": 1104.4269,
+          "deadhead_ratio": 0.373,
+          "improvements": 90,
+          "mean_latency_ms": 34.585,
+          "p95_latency_ms": 151.8066,
+          "violations_total": 12,
+          "violations_wait": 12,
+          "violations_ride": 0,
+          "mean_wait_excess": 2.0889
+        }
+      },
+      "_wall_seconds": {
+        "mean": 13.7
+      }
+    }
+  }
+}

@@ -1,26 +1,7 @@
 # sa.py
-# Simulated Annealing improvement policy.
-#
-# SAPolicy.propose() is the only public entry point.  It receives a
-# frozen system_state snapshot and a feasibility_checker callable, then
-# returns a dict of {vehicle_id: improved_plan} for improved vehicles.
-# It never touches SimPy or live vehicle objects.
-#
-# Fixes applied
-# -------------
-# - Per-vehicle time budget (start_time reset per vehicle, not shared).
-# - Inter-vehicle relocate operator: moves a request PU+DO pair from
-#   one vehicle to another, enabling cross-vehicle optimisation.
-# - Reduced deepcopy: neighbour operators use list() + shallow copies
-#   where possible; only the best solution is deep-copied.
-# - n_committed: operators do not touch committed (in-transit) stops.
-#
-# Neighbour operators
-# -------------------
-# _pair_relocate     : remove one request's PU+DO and re-insert at new
-#                      positions i<j within the same vehicle.
-# _pair_swap         : swap positions of two requests' PU+DO pairs.
-# _inter_vehicle_move: move a request from one vehicle to another.
+# Simulated Annealing route optimiser. Called per-vehicle per epoch
+# to refine greedy or RL insertion plans.
+# Not runnable standalone — imported by dispatcher.py.
 
 import math
 import random
