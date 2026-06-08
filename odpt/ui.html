@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ODPT — Malta On-Demand Routing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg:#060c14; --surface:#0c1824; --surface2:#122030; --border:#1c3048;
+  --accent:#00d4a0; --accent-dim:rgba(0,212,160,0.10); --accent-glow:rgba(0,212,160,0.30);
+  --blue:#3b9fff; --blue-dim:rgba(59,159,255,0.10);
+  --amber:#ffb020; --amber-dim:rgba(255,176,32,0.10);
+  --red:#ff4466; --red-dim:rgba(255,68,102,0.12);
+  --text:#b8ccd8; --bright:#e0f0ff; --muted:#48667a;
+  --fm:'IBM Plex Mono',monospace; --fd:'Barlow Condensed',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--fm);font-size:13px;line-height:1.5;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(28,48,72,.2) 1px,transparent 1px),linear-gradient(90deg,rgba(28,48,72,.2) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.screen{position:fixed;inset:0;display:none;z-index:1;overflow:auto}
+.screen.active{display:flex;flex-direction:column;animation:fadeUp .22s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.sec-label{font-family:var(--fd);font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── CONFIG ─────────────── */
+#screen-config{padding:22px 30px 32px}
+.cfg-header{display:flex;align-items:baseline;gap:14px;padding-bottom:14px;margin-bottom:22px;border-bottom:1px solid var(--border)}
+.cfg-title{font-family:var(--fd);font-size:30px;font-weight:900;letter-spacing:3px;color:var(--accent)}
+.cfg-sub{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.ctor-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.ctor-card{padding:14px 18px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+.ctor-card:hover{border-color:var(--accent);background:var(--accent-dim)}
+.ctor-card.active{border-color:var(--accent);background:var(--accent-dim);box-shadow:0 0 18px var(--accent-glow)}
+.ctor-name{font-family:var(--fd);font-size:22px;font-weight:700;letter-spacing:1px;color:var(--bright)}
+.ctor-card.active .ctor-name{color:var(--accent)}
+.ctor-desc{font-size:11px;color:var(--muted);margin-top:2px}
+#rl-variants{display:none;margin-bottom:18px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px}
+#rl-variants.on{display:block}
+.rl-gen{margin-bottom:10px}.rl-gen:last-child{margin-bottom:0}
+.rl-gen-lbl{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:7px}
+.rl-pills{display:flex;gap:7px;flex-wrap:wrap}
+.rl-pill{padding:4px 14px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);font-family:var(--fm);font-size:12px;cursor:pointer;transition:all .13s}
+.rl-pill:hover{border-color:var(--accent);color:var(--accent)}.rl-pill.active{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+.rl-star{color:var(--amber);margin-left:2px;font-size:11px}
+.cfg-cols{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start}
+.imp-pills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:22px}
+.imp-pill{padding:6px 16px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);font-family:var(--fm);font-size:13px;cursor:pointer;transition:all .13s}
+.imp-pill:hover{border-color:var(--blue);color:var(--blue)}.imp-pill.on{border-color:var(--blue);background:var(--blue-dim);color:var(--blue)}
+.params-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 18px;margin-bottom:18px}
+.param-lbl{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.param-row{display:flex;align-items:center;gap:7px}
+.param-row input[type=range]{flex:1;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+.param-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--accent-glow)}
+.param-val{font-size:14px;font-weight:500;color:var(--bright);min-width:38px;text-align:right}
+.param-unit{font-size:10px;color:var(--muted);min-width:28px}
+.cmd-box{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:10px 14px;margin-top:16px}
+.cmd-box-lbl{font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:5px}
+.cmd-text{font-size:11px;color:var(--accent);word-break:break-all}
+.demand-pills{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.dp{padding:10px 14px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;transition:all .14s}
+.dp:hover{border-color:var(--amber)}.dp.active{border-color:var(--amber);background:var(--amber-dim)}
+.dp-name{font-family:var(--fd);font-size:15px;font-weight:600;color:var(--bright)}
+.dp.active .dp-name{color:var(--amber)}
+.dp-desc{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}
+.run-btn{display:block;width:100%;padding:14px;background:var(--accent);border:none;border-radius:6px;font-family:var(--fd);font-size:17px;font-weight:700;letter-spacing:3px;color:#040b10;cursor:pointer;transition:all .15s;text-transform:uppercase}
+.run-btn:hover{background:#00f0b8;box-shadow:0 0 28px var(--accent-glow);transform:translateY(-1px)}
+
+/* ── LOADING ─────────────── */
+#screen-loading{justify-content:center;align-items:center;padding:40px}
+#screen-loading::after{content:'';position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scan 2.4s linear infinite;opacity:.35}
+@keyframes scan{from{top:0}to{top:100%}}
+.load-box{width:100%;max-width:600px;text-align:center}
+.load-policy{font-family:var(--fd);font-size:52px;font-weight:900;letter-spacing:5px;color:var(--accent);margin-bottom:6px}
+.load-cfg{font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:38px}
+.prog-wrap{background:var(--surface);border:1px solid var(--border);border-radius:4px;height:6px;margin-bottom:14px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),#00f4c0);border-radius:4px;width:0%;transition:width .5s ease;box-shadow:0 0 12px var(--accent-glow);animation:glow-pulse 2s ease-in-out infinite}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px var(--accent-glow)}50%{box-shadow:0 0 20px rgba(0,212,160,.5)}}
+.load-pct{font-family:var(--fd);font-size:42px;font-weight:700;color:var(--bright);margin-bottom:6px}
+.load-count{font-size:12px;color:var(--muted);margin-bottom:6px}
+.load-elapsed{font-size:11px;color:var(--muted);margin-bottom:30px}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.dot{display:inline-block;animation:blink 1.4s infinite}.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+.load-cmd{font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:14px;text-align:left;word-break:break-all}
+
+/* ── PLAYBACK ─────────────── */
+#screen-playback{padding:12px 16px 8px;overflow:hidden}
+.pb-top{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--border)}
+.sim-clock{font-family:var(--fd);font-size:38px;font-weight:900;color:var(--accent);letter-spacing:4px;min-width:104px}
+.period-tag{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;min-width:140px}
+.ctrl-btns{display:flex;gap:5px;margin-left:auto;align-items:center}
+.spd-btn,.pause-btn{padding:4px 11px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--muted);font-family:var(--fm);font-size:12px;cursor:pointer;transition:all .12s}
+.spd-btn:hover,.spd-btn.on,.pause-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.pause-btn{padding:4px 14px;font-size:14px}
+.res-jump-btn{padding:6px 18px;background:transparent;border:1px solid var(--border);border-radius:4px;font-family:var(--fd);font-size:12px;font-weight:600;letter-spacing:1.5px;color:var(--muted);cursor:pointer;transition:all .15s;margin-left:6px}
+.res-jump-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.res-jump-btn.done{border-color:var(--accent);color:#040b10;background:var(--accent)}
+.pb-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:6px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:7px 12px}
+.kpi-lbl{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px}
+.kpi-val{font-family:var(--fd);font-size:26px;font-weight:700;color:var(--bright);line-height:1}
+.kpi-u{font-size:11px;color:var(--muted);margin-left:2px}
+.pb-scrub-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pb-scrub-lbl{font-size:10px;color:var(--muted);font-family:var(--fm);min-width:38px}
+.pb-scrub-lbl.r{text-align:right}
+#pb-scrubber{flex:1;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+#pb-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--accent-glow)}
+#pb-scrubber::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--accent) var(--pct,0%),var(--border) var(--pct,0%));border-radius:2px}
+.pb-main{display:grid;grid-template-columns:1fr 280px;gap:10px;height:calc(100vh - 228px)}
+#malta-map{border-radius:7px;overflow:hidden;border:1px solid var(--border);background:var(--surface)}
+.pb-right{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.bus-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;overflow-y:auto;max-height:55%}
+.bcard{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:8px 10px;transition:border-color .18s,box-shadow .18s}
+.bcard.fp{border-color:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
+.bcard.fd{border-color:var(--blue);box-shadow:0 0 12px rgba(59,159,255,.3)}
+.bcard-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.bid{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--bright)}
+.bstat{font-size:8px;padding:2px 5px;border-radius:3px;letter-spacing:1px;background:var(--surface2);color:var(--muted)}
+.bstat.sp{background:var(--accent-dim);color:var(--accent)}.bstat.sd{background:var(--blue-dim);color:var(--blue)}.bstat.ss{background:var(--amber-dim);color:var(--amber)}
+.seat-grid{display:grid;gap:2px;margin-bottom:4px}
+.seat{width:7px;height:7px;border-radius:2px;background:var(--border)}
+.seat.on{background:var(--accent);box-shadow:0 0 3px var(--accent-glow)}
+.bload{font-size:10px;color:var(--muted);text-align:right}.bload span{color:var(--bright)}
+.evlog{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.evlog-hdr{padding:6px 10px;border-bottom:1px solid var(--border);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.evlog-body{flex:1;overflow-y:auto}
+.ev{padding:4px 10px;border-bottom:1px solid rgba(28,48,72,.5);display:grid;grid-template-columns:40px 50px 60px 1fr;gap:5px;align-items:center;font-size:10px}
+.ev.ep{border-left:2px solid var(--accent)}.ev.ed{border-left:2px solid var(--blue)}.ev.er{border-left:2px solid var(--red)}
+.ev-t{color:var(--muted)}.ev-b{color:var(--text)}.ev-ty{font-weight:500}
+.ev.ep .ev-ty{color:var(--accent)}.ev.ed .ev-ty{color:var(--blue)}
+.ev-w{color:var(--muted);font-size:9px;text-align:right}
+
+/* ── RESULTS ─────────────── */
+#screen-results{padding:22px 30px 32px;overflow-y:auto}
+.res-hdr{padding-bottom:14px;margin-bottom:20px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;justify-content:space-between;gap:16px}
+.res-policy{font-family:var(--fd);font-size:36px;font-weight:900;letter-spacing:4px;color:var(--accent)}
+.res-cfg{font-size:11px;color:var(--muted)}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 16px}
+.mcard.feat{border-color:var(--accent);background:var(--accent-dim)}
+.m-lbl{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.m-val{font-family:var(--fd);font-size:32px;font-weight:900;color:var(--bright);line-height:1}
+.mcard.feat .m-val{color:var(--accent)}.m-unit{font-size:11px;color:var(--muted);margin-top:3px}
+.res-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 16px}
+.box-title{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px}
+#hist-svg{width:100%;height:90px;display:block}
+.insight-box{border-left:3px solid var(--accent)}
+.insight-txt{font-size:13px;color:var(--text);line-height:1.65}
+.res-foot{display:flex;gap:10px}
+.rbtn{padding:9px 22px;border-radius:5px;font-family:var(--fd);font-size:13px;font-weight:600;letter-spacing:2px;cursor:pointer;transition:all .14s}
+.rbtn-p{background:var(--accent);border:none;color:#040b10}.rbtn-p:hover{background:#00f0b8;box-shadow:0 0 18px var(--accent-glow)}
+.rbtn-o{background:transparent;border:1px solid var(--border);color:var(--text)}.rbtn-o:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Leaflet overrides */
+.leaflet-container{background:#0c1824}
+.leaflet-tile-pane{opacity:.85}
+</style>
+</head>
+<body>
+
+<!-- CONFIG -->
+<div class="screen active" id="screen-config">
+  <div class="cfg-header">
+    <div class="cfg-title">ODPT</div>
+    <div class="cfg-sub">Malta On-Demand Routing · Simulation Console</div>
+  </div>
+  <div class="sec-label">01 — Constructor</div>
+  <div class="ctor-grid">
+    <div class="ctor-card active" id="ctor-greedy" onclick="selCtor('greedy')">
+      <div class="ctor-name">Greedy</div>
+      <div class="ctor-desc">Nearest-feasible insertion</div>
+    </div>
+    <div class="ctor-card" id="ctor-rl" onclick="selCtor('rl')">
+      <div class="ctor-name">RL</div>
+      <div class="ctor-desc">Learned dispatch policy</div>
+    </div>
+  </div>
+  <div id="rl-variants">
+    <div class="rl-gen">
+      <div class="rl-gen-lbl">Strategy 1 — Independent Reward Training</div>
+      <div class="rl-pills">
+        <button class="rl-pill" data-val="rl1.0" onclick="selRL('rl1.0')">RL1.0</button>
+        <button class="rl-pill" data-val="rl1.1" onclick="selRL('rl1.1')">RL1.1</button>
+        <button class="rl-pill" data-val="rl1.1-a" onclick="selRL('rl1.1-a')">RL1.1-A</button>
+      </div>
+    </div>
+    <div class="rl-gen" style="margin-top:10px">
+      <div class="rl-gen-lbl">Strategy 2 — TS-Coupled Training</div>
+      <div class="rl-pills">
+        <button class="rl-pill" data-val="rl2.0" onclick="selRL('rl2.0')">RL2.0<span class="rl-star">★</span></button>
+        <button class="rl-pill" data-val="rl2.0-a" onclick="selRL('rl2.0-a')">RL2.0-A</button>
+        <button class="rl-pill" data-val="rl2.1" onclick="selRL('rl2.1')">RL2.1</button>
+        <button class="rl-pill" data-val="rl2.1-a" onclick="selRL('rl2.1-a')">RL2.1-A</button>
+        <button class="rl-pill" data-val="rl2.2" onclick="selRL('rl2.2')">RL2.2</button>
+      </div>
+    </div>
+  </div>
+  <div class="cfg-cols">
+    <div>
+      <div class="sec-label" style="margin-top:2px">02 — Improver</div>
+      <div class="imp-pills">
+        <button class="imp-pill" data-val="" onclick="selImp('')">None</button>
+        <button class="imp-pill on" data-val="ts" onclick="selImp('ts')">TS</button>
+        <button class="imp-pill" data-val="sa" onclick="selImp('sa')">SA</button>
+        <button class="imp-pill" data-val="ga" onclick="selImp('ga')">GA</button>
+        <button class="imp-pill" data-val="alns" onclick="selImp('alns')">ALNS</button>
+      </div>
+      <div class="sec-label">03 — Parameters</div>
+      <div class="params-grid" id="params-grid"></div>
+      <div class="cmd-box">
+        <div class="cmd-box-lbl">COMMAND PREVIEW</div>
+        <div class="cmd-text" id="cmd-prev">$ python run_single.py ...</div>
+      </div>
+    </div>
+    <div>
+      <div class="sec-label">Demand Profile</div>
+      <div class="demand-pills">
+        <div class="dp active" data-val="malta" onclick="selDemand('malta')">
+          <div class="dp-name">Malta</div>
+          <div class="dp-desc">Rush hours 07:00–09:00 &amp; 15:00–18:00.</div>
+        </div>
+        <div class="dp" data-val="uniform" onclick="selDemand('uniform')">
+          <div class="dp-name">Uniform</div>
+          <div class="dp-desc">Constant arrival rate all day.</div>
+        </div>
+      </div>
+      <button class="run-btn" onclick="doRun()">Run Simulation</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="screen-loading">
+  <div class="load-box">
+    <div class="load-policy" id="ld-policy">GREEDY+TS</div>
+    <div class="load-cfg" id="ld-cfg">6 buses · 16 seats · 400 requests</div>
+    <div class="prog-wrap"><div class="prog-fill" id="prog-fill"></div></div>
+    <div class="load-pct" id="ld-pct">0%</div>
+    <div class="load-count"><span id="ld-served">0</span> / <span id="ld-total">400</span> requests served<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+    <div class="load-elapsed" id="ld-elapsed">Elapsed: 0s</div>
+    <div class="load-cmd" id="ld-cmd"></div>
+  </div>
+</div>
+
+<!-- PLAYBACK -->
+<div class="screen" id="screen-playback">
+  <div class="pb-top">
+    <div class="sim-clock" id="pb-clock">05:30</div>
+    <div class="period-tag" id="pb-period">EARLY MORNING</div>
+    <div class="ctrl-btns">
+      <button class="pause-btn" id="pause-btn" onclick="togglePause()">⏸</button>
+      <button class="spd-btn on" data-s="1"  onclick="setSpd(1)">1×</button>
+      <button class="spd-btn"    data-s="2"  onclick="setSpd(2)">2×</button>
+      <button class="spd-btn"    data-s="5"  onclick="setSpd(5)">5×</button>
+      <button class="spd-btn"    data-s="10" onclick="setSpd(10)">10×</button>
+      <button class="res-jump-btn" id="res-btn" onclick="showResults()">Results →</button>
+      <button class="res-jump-btn" onclick="restartReplay()" style="border-color:var(--muted)">⟳ Restart</button>
+      <button class="res-jump-btn" onclick="goConfig()" style="border-color:var(--muted)">↺ New Sim</button>
+    </div>
+  </div>
+  <div class="pb-kpis">
+    <div class="kpi"><div class="kpi-lbl">Served</div><div class="kpi-val" id="kpi-served">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Rejected</div><div class="kpi-val" id="kpi-rejected">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Avg Wait</div><div class="kpi-val" id="kpi-wait">—<span class="kpi-u">min</span></div></div>
+    <div class="kpi"><div class="kpi-lbl">Service Rate</div><div class="kpi-val" id="kpi-rate">—<span class="kpi-u">%</span></div></div>
+  </div>
+  <div class="pb-scrub-row">
+    <span class="pb-scrub-lbl" id="scrub-t0">05:30</span>
+    <input type="range" id="pb-scrubber" aria-label="Simulation time" min="0" max="1020" step="1" value="0" oninput="onScrub(this.value)">
+    <span class="pb-scrub-lbl r">22:30</span>
+  </div>
+  <div class="pb-main">
+    <div id="malta-map"></div>
+    <div class="pb-right">
+      <div class="bus-grid" id="bus-grid"></div>
+      <div class="evlog">
+        <div class="evlog-hdr">Event Stream</div>
+        <div class="evlog-body" id="evlog-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="screen" id="screen-results">
+  <div class="res-hdr">
+    <div>
+      <div class="res-policy" id="res-pol">GREEDY+TS</div>
+      <div class="res-cfg" id="res-cfg">—</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button class="rbtn rbtn-o" onclick="goConfig()">New Run</button>
+      <button class="rbtn rbtn-o" onclick="replay()">Replay</button>
+      <button class="rbtn rbtn-o" id="map-btn" onclick="openMap()" style="display:none">Open Route Map</button>
+      <a id="dbg-link" href="#" target="_blank" style="display:none;padding:9px 16px;border-radius:5px;border:1px solid var(--border);color:var(--muted);font-family:var(--fd);font-size:12px;font-weight:600;letter-spacing:1.5px;text-decoration:none">DEBUG</a>
+    </div>
+  </div>
+  <div class="metrics-grid" id="metrics-grid"></div>
+  <div class="res-row">
+    <div class="box">
+      <div class="box-title">Wait Time Distribution (approx.)</div>
+      <svg id="hist-svg" viewBox="0 0 400 90"></svg>
+    </div>
+    <div class="box insight-box">
+      <div class="box-title">Policy Insight</div>
+      <div class="insight-txt" id="insight-txt">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══ CONSTANTS ═══════════════════════════════════════════ */
+const PARAMS=[
+  {key:'fleet',       lbl:'Fleet Size',   unit:'buses',min:1,  max:15,  step:1,  dp:0,def:6},
+  {key:'capacity',    lbl:'Seat Cap.',    unit:'seats',min:4,  max:40,  step:1,  dp:0,def:16},
+  {key:'requests',    lbl:'Request Cap',  unit:'req',  min:50, max:1000,step:10, dp:0,def:400},
+  {key:'interArrival',lbl:'Inter-arrival',unit:'min',  min:0.5,max:10,  step:0.1,dp:1,def:3.0},
+  {key:'maxWait',     lbl:'Max Wait',     unit:'min',  min:5,  max:60,  step:1,  dp:0,def:30},
+  {key:'rideFactor',  lbl:'Ride Factor',  unit:'×',    min:1.0,max:5.0, step:0.1,dp:1,def:2.5},
+  {key:'seed',        lbl:'Seed',         unit:'',     min:0,  max:9999,step:1,  dp:0,def:42},
+];
+const PERIODS=[
+  {from:0,  to:90, lbl:'EARLY MORNING'},
+  {from:90, to:210,lbl:'🚌 MORNING PEAK'},
+  {from:210,to:390,lbl:'MID-MORNING'},
+  {from:390,to:570,lbl:'AFTERNOON'},
+  {from:570,to:750,lbl:'🚌 EVENING PEAK'},
+  {from:750,to:870,lbl:'EVENING'},
+  {from:870,to:1020,lbl:'NIGHT'},
+];
+const INSIGHTS={
+  'greedy':       "Nearest-feasible greedy insertion. Strong construction-only baseline with no optimisation beyond initial routing. Competitive coverage under default load.",
+  'greedy+sa':    "Greedy with Simulated Annealing. Marginal gain over pure Greedy. SA shows the steepest service/wait exchange rate and is the weakest metaheuristic pairing for this problem structure.",
+  'greedy+ts':    "Greedy with Tabu Search. Strong quality lift over pure Greedy. TS preserves and amplifies construction-method differences, rewarding well-structured initial solutions.",
+  'greedy+ga':    "Greedy with Genetic Algorithm. Comparable to Greedy+TS. GA compresses variant differences; construction quality becomes less decisive under crossover.",
+  'greedy+alns':  "Best greedy pairing and sole greedy representative on the Pareto frontier. Dense greedy assignments suit ALNS destroy-and-repair operators naturally.",
+
+  'rl1.0':        "Strategy 1.0: independent reward training (r = +served, penalty on wait/ride violations). Standalone reward signal with moderate performance alone. Benefits most from a TS improvement pass.",
+  'rl1.0+sa':     "Strategy 1.0 with SA. SA is the weakest improver regardless of constructor; neither variant escapes the dominated region.",
+  'rl1.0+ts':     "Strategy 1.0 with TS. TS produces substantially more improvement steps from RL-constructed solutions than from greedy, reflecting structurally different starting points rather than locally optimal ones.",
+  'rl1.0+ga':     "Strategy 1.0 with GA. Competitive mid-range result. GA's global crossover partially exploits RL1.0's structural diversity.",
+  'rl1.0+alns':   "Strategy 1.0 with ALNS. Greedy+ALNS leads here; ALNS is the one improver where greedy construction is preferable to RL.",
+
+  'rl1.0-a':      "Strategy 1.0-A: anticipatory variant. Incorporates demand forecast signals into the independent reward objective, improving early-shift coverage decisions.",
+  'rl1.0-a+sa':   "Strategy 1.0-A with SA. Anticipatory signals partially offset SA's weak exchange rate but cannot overcome its structural limitations.",
+  'rl1.0-a+ts':   "Strategy 1.0-A with TS. TS amplifies the anticipatory constructor's improved initial solutions, yielding more improvement steps than the non-anticipatory variant.",
+  'rl1.0-a+ga':   "Strategy 1.0-A with GA. GA crossover benefits from the richer structural diversity introduced by anticipatory demand awareness.",
+  'rl1.0-a+alns': "Strategy 1.0-A with ALNS. Anticipatory routing partially suits ALNS operators, though Greedy+ALNS maintains the coverage lead.",
+
+  'rl1.1':        "Strategy 1.1: improved observation space with strong rejection shaping. Lower service rate trades off against reduced wait times, occupying a distinct quality-focused niche in the solution space.",
+  'rl1.1+sa':     "Strategy 1.1 with SA. Aggressive rejection bias is partially offset by SA but service rate remains constrained.",
+  'rl1.1+ts':     "Strategy 1.1 with TS. Near-zero violations reflect aggressive rejection rather than superior routing. Occupies a unique low-wait frontier niche.",
+  'rl1.1+ga':     "Strategy 1.1 with GA. GA crossover moderates the conservative routing bias. Competitive wait times at moderate service rate.",
+  'rl1.1+alns':   "Strategy 1.1 with ALNS. Destroy-and-repair helps recover service rate from conservative initial routes.",
+
+  'rl1.1-a':      "Strategy 1.1-A: anticipatory variant with improved observation space. Demand forecasting partially offsets the aggressive rejection tendency, improving service rate without sacrificing wait-time quality.",
+  'rl1.1-a+sa':   "Strategy 1.1-A with SA. SA cannot overcome its fundamental exchange-rate limitation even with anticipatory signals.",
+  'rl1.1-a+ts':   "Strategy 1.1-A with TS. TS improvement yields better feasibility margins than the non-anticipatory 1.1 variant, with near-zero violations maintained.",
+  'rl1.1-a+ga':   "Strategy 1.1-A with GA. Anticipatory signals and GA crossover together moderate the conservative routing bias more than either alone.",
+  'rl1.1-a+alns': "Strategy 1.1-A with ALNS. ALNS recovers more service rate from 1.1-A's initial routes than from the non-anticipatory variant.",
+
+  'rl2.0':        "Strategy 2.0: trained against a TS improvement pass (r = +served, penalties on wait/ride excess, bonus on TS improvement delta). The Pareto knee-point model. Use with TS for the recommended balanced operating point.",
+  'rl2.0+sa':     "Strategy 2.0 with SA. Falls further from the Pareto frontier despite lower wait. SA's fundamental exchange-rate limitation holds even for the best constructor.",
+  'rl2.0+ts':     "★ Pareto knee-point. Best mean wait at high service rate with minimum normalised utopia distance across all configurations. RL training specialised for TS maximally amplifies construction advantages. The recommended balanced operating point for tallinja On Demand.",
+  'rl2.0+ga':     "Strategy 2.0 with GA. Strong result, but GA suppresses the TS-training advantage; deadhead collapses into a tight band regardless of RL variant.",
+  'rl2.0+alns':   "Strategy 2.0 with ALNS. High service rate but Greedy+ALNS still leads; dense greedy assignments suit ALNS operators better.",
+
+  'rl2.0-a':      "Strategy 2.0-A: anticipatory variant of the Pareto knee-point. Combines TS-coupled training with demand forecast signals, targeting improved peak-period coverage decisions.",
+  'rl2.0-a+sa':   "Strategy 2.0-A with SA. SA's structural limitations persist regardless of constructor quality.",
+  'rl2.0-a+ts':   "Strategy 2.0-A with TS. Anticipatory signals combined with TS-coupled training may yield tighter peak-period scheduling than the non-anticipatory 2.0 variant.",
+  'rl2.0-a+ga':   "Strategy 2.0-A with GA. Anticipatory awareness reduces the compression effect GA imposes on RL2.0's TS-training advantage.",
+  'rl2.0-a+alns': "Strategy 2.0-A with ALNS. Demand-aware routing provides ALNS operators with better destroy-and-repair targets during peak windows.",
+
+  'rl2.1':        "Strategy 2.1: fleet balance incentive and corrected training artefacts. Lowest violation counts across all constructors with best cross-seed variance.",
+  'rl2.1+sa':     "Strategy 2.1 with SA. Fleet balance training helps, but SA remains structurally the weakest improver.",
+  'rl2.1+ts':     "Strategy 2.1 with TS. Strong constraint compliance. Fleet balance incentive produces wider feasibility margins, buffering execution-time travel noise.",
+  'rl2.1+ga':     "Strategy 2.1 with GA. Fleet balance signals complement GA's global crossover. Closely competitive with RL2.0+GA.",
+  'rl2.1+alns':   "Strategy 2.1 with ALNS. Fleet balance routing partially suits ALNS operators, but Greedy+ALNS maintains the coverage lead.",
+
+  'rl2.1-a':      "Strategy 2.1-A: anticipatory fleet-balance variant. Demand forecasting combined with fleet balance incentive targets both coverage and spatial distribution improvements.",
+  'rl2.1-a+sa':   "Strategy 2.1-A with SA. SA's exchange-rate limitation persists across all constructor qualities.",
+  'rl2.1-a+ts':   "Strategy 2.1-A with TS. Fleet balance and anticipatory signals together yield the strongest feasibility margins of any Strategy 2 variant.",
+  'rl2.1-a+ga':   "Strategy 2.1-A with GA. Anticipatory fleet balance complements GA's global crossover, competitive with RL2.0+GA.",
+  'rl2.1-a+alns': "Strategy 2.1-A with ALNS. Fleet balance and demand awareness together provide ALNS with improved operator targets.",
+
+  'rl2.2':        "Strategy 2.2: wider network architecture with schedule tightness signals. Part of the Pareto-frontier RL cluster with enhanced spatial efficiency.",
+  'rl2.2+sa':     "Strategy 2.2 with SA. Wider architecture does not overcome SA's fundamental exchange-rate limitation.",
+  'rl2.2+ts':     "Strategy 2.2 with TS. Pareto-frontier policy. Competitive with RL2.0+TS on service rate; schedule tightness signals yield tighter deadhead.",
+  'rl2.2+ga':     "Strategy 2.2 with GA. GA compresses RL2.2's architectural advantages into the tight RL2.x performance band.",
+  'rl2.2+alns':   "Strategy 2.2 with ALNS. On the Pareto frontier. Schedule tightness signals help ALNS identify better destroy-and-repair targets.",
+
+  'rl2.2-a':      "Strategy 2.2-A: anticipatory variant of the wide-architecture model. Schedule tightness signals combined with demand forecasting target the most constrained time windows during peak periods.",
+  'rl2.2-a+sa':   "Strategy 2.2-A with SA. SA's limitations are unchanged by the wider architecture or anticipatory signals.",
+  'rl2.2-a+ts':   "Strategy 2.2-A with TS. Anticipatory schedule tightness signals may yield the tightest deadhead of any configuration on the Pareto frontier.",
+  'rl2.2-a+ga':   "Strategy 2.2-A with GA. Anticipatory signals reduce the compression effect GA imposes on the wide-architecture advantage.",
+  'rl2.2-a+alns': "Strategy 2.2-A with ALNS. Demand-aware schedule tightness provides ALNS with the richest signal for identifying destroy-and-repair targets.",
+};
+
+/* Real Malta stop coordinates (from malta_stops.csv) */
+const DEPOT=[35.8849986,14.4743422]; // 0 Ħal Qormi depot
+const STOPS=[
+  [35.8849986,14.4743422],[35.8857463,14.4749819],[35.8880136,14.4701958],
+  [35.889891,14.4723791],[35.8907059,14.4628465],[35.8913947,14.4660129],
+  [35.8928929,14.4587735],[35.8972914,14.4553369],[35.9021565,14.4517386],
+  [35.9045421,14.462868],[35.9019871,14.4692463],[35.8953244,14.4650942],
+  [35.890795,14.4727693],[35.8937849,14.4731663],[35.8923849,14.4820648],
+  [35.8925621,14.4807526],[35.8960301,14.4889276],[35.8978716,14.4970115],
+  [35.900743,14.4975567],[35.9062421,14.4974261],[35.9087845,14.5039476],
+  [35.9070201,14.5083748],[35.9129363,14.5066544],[35.9133112,14.5013309],
+  [35.9147545,14.4964069],[35.914458,14.4935235],[35.9018006,14.4914944],
+  [35.8990711,14.4932051],[35.9048162,14.4916437],[35.9094454,14.4943772],
+  [35.9111628,14.4932089],[35.8999347,14.48479],[35.8978568,14.4783819],
+  [35.8991333,14.4766317],[35.8992712,14.4721055],[35.9017872,14.4754663],
+  [35.9012484,14.4799992],[35.9039359,14.4722691],[35.9064539,14.4716227],
+  [35.9068797,14.4814745],[35.9111182,14.487083],[35.9138618,14.4894488],
+  [35.9176176,14.49276],[35.9096132,14.4824198],[35.9115961,14.4652981],
+  [35.9091755,14.4739702],[35.9086423,14.4754193],[35.9079304,14.4787263],
+  [35.9109618,14.4751015],[35.9120165,14.4774525],[35.9193735,14.4900871],
+  [35.9217249,14.4903551],[35.9223269,14.4876958],[35.9236193,14.4836739],
+  [35.9272533,14.4867934],[35.9284455,14.4889337],[35.9287713,14.4831495],
+  [35.9271977,14.4823717],[35.9234706,14.4781146],[35.9232244,14.4769659],
+  [35.9271184,14.4772486],[35.9217557,14.4748789],[35.9203364,14.4774917],
+  [35.9195407,14.480281],[35.9164382,14.4811955],[35.9151295,14.4795694],
+  [35.913384,14.4824347],[35.9174461,14.4683947],[35.9192709,14.4714245],
+  [35.9262062,14.4630128],[35.9223986,14.4672024],[35.9252006,14.4680929],
+];
+
+/* ═══ STATE ═════════════════════════════════════════════ */
+function mGet(m,...keys){for(const k of keys)if(m[k]!=null)return m[k];return null}
+const S={ctor:'greedy',rl:'rl2.0',imp:'ts',demand:'malta',
+  params:{fleet:6,capacity:16,requests:400,interArrival:3.0,maxWait:30,rideFactor:2.5,seed:42}};
+let runId=null,runEvents=[],runMetrics=null,runHasMap=false;
+let pb={spd:1,clock:0,idx:0,buses:{},served:0,wSum:0,wN:0,raf:null,lastMs:null,done:false,paused:false};
+let pollTimer=null,elapsedTimer=null,startMs=0;
+let leafMap=null,busMarkers={};
+
+/* ═══ UTILS ═════════════════════════════════════════════ */
+const BASE=330;
+function c2m(hhmm){const[h,m]=hhmm.split(':').map(Number);return h*60+m-BASE}
+function m2c(m){const t=BASE+m,h=Math.floor(t/60)%24,mn=Math.floor(t%60);return`${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`}
+function period(m){for(const p of PERIODS)if(m>=p.from&&m<p.to)return p.lbl;return'NIGHT'}
+function pLabel(){const c=S.ctor==='rl'?S.rl.toUpperCase():'GREEDY';return c+(S.imp?'+'+S.imp.toUpperCase():'')}
+function pKey(){const c=S.ctor==='rl'?S.rl:'greedy';return c+(S.imp?'+'+S.imp:'')}
+function cfgStr(){const p=S.params;return`${p.fleet} buses · ${p.capacity} seats · ${p.requests} req · ${S.demand} · λ=${p.interArrival}min`}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active')}
+
+/* ═══ CONFIG ════════════════════════════════════════════ */
+function buildParams(){
+  const g=document.getElementById('params-grid');g.innerHTML='';
+  for(const p of PARAMS){
+    const d=document.createElement('div');
+    d.innerHTML=`<div class="param-lbl">${p.lbl}</div><div class="param-row"><input type="range" id="sl-${p.key}" aria-label="${p.lbl}" min="${p.min}" max="${p.max}" step="${p.step}" value="${S.params[p.key]}" oninput="onParam('${p.key}',this.value)"><div class="param-val" id="pv-${p.key}">${Number(S.params[p.key]).toFixed(p.dp)}</div><div class="param-unit">${p.unit}</div></div>`;
+    g.appendChild(d);
+  }
+}
+function onParam(k,v){const p=PARAMS.find(x=>x.key===k);const n=p.dp>0?parseFloat(v):parseInt(v);S.params[k]=n;document.getElementById('pv-'+k).textContent=n.toFixed(p.dp);updateCmd()}
+function selCtor(v){S.ctor=v;['greedy','rl'].forEach(c=>document.getElementById('ctor-'+c).classList.toggle('active',c===v));document.getElementById('rl-variants').classList.toggle('on',v==='rl');if(v==='rl')selRL(S.rl);updateCmd()}
+function selRL(v){S.rl=v;document.querySelectorAll('.rl-pill').forEach(p=>p.classList.toggle('active',p.dataset.val===v));updateCmd()}
+function selImp(v){S.imp=v;document.querySelectorAll('.imp-pill').forEach(p=>p.classList.toggle('on',p.dataset.val===v));updateCmd()}
+function selDemand(v){S.demand=v;document.querySelectorAll('.dp').forEach(p=>p.classList.toggle('active',p.dataset.val===v));updateCmd()}
+function updateCmd(){
+  let pol=S.ctor==='rl'?S.rl:'greedy';if(S.imp)pol+='+'+S.imp;
+  const p=S.params;
+  let cmd=`python run_single.py --policy ${pol}`;
+  if(S.ctor==='rl')cmd+=` --model ${S.rl}`;
+  cmd+=` --fleet ${p.fleet} --capacity ${p.capacity} --requests ${p.requests}`;
+  cmd+=` --inter-arrival ${p.interArrival.toFixed(1)} --max-wait ${p.maxWait} --ride-factor ${p.rideFactor.toFixed(1)} --seed ${p.seed}`;
+  cmd+=` --demand-profile ${S.demand} --verbose`;
+  document.getElementById('cmd-prev').textContent='$ '+cmd;
+}
+
+/* ═══ RUN ══════════════════════════════════════════════ */
+async function doRun(){
+  let pol=S.ctor==='rl'?S.rl:'greedy';if(S.imp)pol+='+'+S.imp;
+  document.getElementById('ld-policy').textContent=pLabel();
+  document.getElementById('ld-policy').style.color='var(--accent)';
+  document.getElementById('ld-cfg').textContent=cfgStr();
+  document.getElementById('ld-served').textContent='0';
+  document.getElementById('ld-total').textContent=S.params.requests;
+  document.getElementById('prog-fill').style.cssText='width:0%;background:linear-gradient(90deg,var(--accent),#00f4c0);animation:glow-pulse 2s ease-in-out infinite';
+  document.getElementById('ld-pct').textContent='0%';
+  document.getElementById('ld-cmd').style.cssText='font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:14px;text-align:left;word-break:break-all';
+  document.getElementById('ld-cmd').textContent='';
+  showScreen('loading');
+  startMs=Date.now();
+  elapsedTimer=setInterval(()=>{document.getElementById('ld-elapsed').textContent=`Elapsed: ${Math.floor((Date.now()-startMs)/1000)}s`},1000);
+  try{
+    const res=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({policy:pol,rlModel:S.rl,demandProfile:S.demand,fleet:S.params.fleet,capacity:S.params.capacity,requests:S.params.requests,interArrival:S.params.interArrival,maxWait:S.params.maxWait,rideFactor:S.params.rideFactor,seed:S.params.seed})});
+    const d=await res.json();
+    runId=d.run_id;
+    document.getElementById('ld-cmd').textContent='$ '+(d.cmd||'');
+    pollTimer=setInterval(pollStatus,600);
+  }catch(e){clearInterval(elapsedTimer);alert('Cannot reach server.\n\npython server.py\n\nThen open http://localhost:5000')}
+}
+async function pollStatus(){
+  try{
+    const r=await fetch('/api/status/'+runId);const d=await r.json();
+    const s=d.served_so_far||0,t=d.total||S.params.requests,pct=Math.min(100,Math.round(s/t*100));
+    document.getElementById('ld-served').textContent=s;
+    document.getElementById('ld-total').textContent=t;
+    document.getElementById('ld-pct').textContent=pct+'%';
+    document.getElementById('prog-fill').style.width=pct+'%';
+    if(d.status==='done'){clearInterval(pollTimer);clearInterval(elapsedTimer);pollTimer=elapsedTimer=null;await loadAndPlay()}
+  }catch(e){console.warn('poll',e)}
+}
+async function loadAndPlay(){
+  try{
+    const r=await fetch('/api/results/'+runId);const d=await r.json();
+    runEvents=(d.events||[]).map(ev=>({...ev,sm:c2m(ev.clock)})).sort((a,b)=>a.sm-b.sm);
+    runMetrics=d.metrics||null;runHasMap=!!d.has_map;
+    if(runEvents.length===0&&!runMetrics){
+      const out=(d.stdout||[]).join('\n')||'No output captured.';
+      document.getElementById('ld-policy').textContent='RUN FAILED';
+      document.getElementById('ld-policy').style.color='var(--red)';
+      document.getElementById('ld-cfg').textContent=`exit code: ${d.returncode??'?'}`;
+      document.getElementById('prog-fill').style.cssText='width:100%;background:var(--red);animation:none;box-shadow:none';
+      document.getElementById('ld-pct').textContent='✕ ERROR';
+      document.getElementById('ld-elapsed').innerHTML='<button onclick="goConfig()" style="padding:6px 18px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text);font-family:var(--fm);font-size:12px;cursor:pointer">← Back to Config</button>';
+      document.getElementById('ld-cmd').style.cssText='font-size:11px;color:var(--red);border-top:1px solid var(--border);padding-top:14px;text-align:left;word-break:break-all;white-space:pre-wrap;max-height:260px;overflow-y:auto';
+      document.getElementById('ld-cmd').textContent=out;
+      return;
+    }
+    startPlayback();
+  }catch(e){alert('Failed to load results: '+e.message)}
+}
+
+/* ═══ LEAFLET MAP ══════════════════════════════════════ */
+function busIconHtml(n,status){
+  const colors={idle:'#48667a',service:'#ffb020',pickup:'#00d4a0',dropoff:'#3b9fff'};
+  const c=colors[status]||colors.idle;
+  return L.divIcon({
+    html:`<div style="width:18px;height:18px;border-radius:3px;background:${c};color:#060c14;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px ${c};transition:background .3s,box-shadow .3s">${n}</div>`,
+    iconSize:[18,18],iconAnchor:[9,9],className:''});
+}
+function initLeafletMap(){
+  if(leafMap){leafMap.remove();leafMap=null}
+  const el=document.getElementById('malta-map');
+  leafMap=L.map(el,{center:[35.895,14.440],zoom:11,zoomControl:false,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {subdomains:'abcd',maxZoom:19}).addTo(leafMap);
+  // Add attribution tiny
+  L.control.attribution({position:'bottomright',prefix:false}).addTo(leafMap);
+  busMarkers={};
+  const spread=[[0,0],[.004,-.004],[.004,.004],[-.004,.004],[-.004,-.004],[.006,0],[0,.006],[-.006,0],[0,-.006],[.008,.002],[-.008,.002],[.002,.008],[.002,-.008],[.006,.006],[-.006,-.006]];
+  for(let i=1;i<=S.params.fleet;i++){
+    const bid='Bus-'+i;
+    const off=spread[(i-1)%spread.length];
+    const pos=[DEPOT[0]+off[0],DEPOT[1]+off[1]];
+    const m=L.marker(pos,{icon:busIconHtml(i,'idle'),zIndexOffset:1000}).addTo(leafMap);
+    m.bindTooltip(bid,{permanent:false,direction:'top',className:'',offset:[0,-4]});
+    busMarkers[bid]=m;
+  }
+  setTimeout(()=>leafMap&&leafMap.invalidateSize(),100);
+}
+function moveBusOnMap(bid,evType,reqId){
+  const m=busMarkers[bid];if(!m)return;
+  const n=parseInt(reqId.replace(/\D/g,''))||1;
+  const pos=STOPS[n%72]||DEPOT;
+  m.setLatLng(pos);
+  const busN=parseInt(bid.replace(/\D/g,''));
+  m.setIcon(busIconHtml(busN,evType==='pickup'?'pickup':'dropoff'));
+  setTimeout(()=>{
+    if(!busMarkers[bid])return;
+    const has=pb.buses[bid]?.onboard.size>0;
+    busMarkers[bid].setIcon(busIconHtml(busN,has?'service':'idle'));
+  },900);
+}
+
+/* ═══ PLAYBACK ══════════════════════════════════════════ */
+function initBuses(){
+  const g=document.getElementById('bus-grid');g.innerHTML='';pb.buses={};
+  const n=S.params.fleet,cap=S.params.capacity,cols=cap<=12?4:cap<=24?6:8;
+  for(let i=1;i<=n;i++){
+    const bid='Bus-'+i;pb.buses[bid]={onboard:new Set(),ft:null};
+    const c=document.createElement('div');c.className='bcard';c.id='bc-'+i;
+    c.innerHTML=`<div class="bcard-top"><div class="bid">${bid}</div><div class="bstat" id="bs-${bid}">IDLE</div></div><div class="seat-grid" id="sg-${bid}" style="grid-template-columns:repeat(${cols},7px)">${'<div class="seat"></div>'.repeat(cap)}</div><div class="bload"><span id="bl-${bid}">0</span>/${cap}</div>`;
+    g.appendChild(c);
+  }
+}
+function renderSeats(bid){
+  const b=pb.buses[bid];if(!b)return;
+  const sg=document.getElementById('sg-'+bid);if(!sg)return;
+  sg.querySelectorAll('.seat').forEach((s,i)=>s.classList.toggle('on',i<b.onboard.size));
+  const bl=document.getElementById('bl-'+bid);if(bl)bl.textContent=b.onboard.size;
+}
+function flashBus(bid,type){
+  const b=pb.buses[bid];if(!b)return;
+  const idx=bid.replace('Bus-','');
+  const card=document.getElementById('bc-'+idx),stat=document.getElementById('bs-'+bid);
+  if(!card||!stat)return;
+  if(b.ft)clearTimeout(b.ft);
+  card.classList.remove('fp','fd');void card.offsetWidth;
+  card.classList.add(type==='pickup'?'fp':'fd');
+  stat.className='bstat '+(type==='pickup'?'sp':'sd');
+  stat.textContent=type==='pickup'?'PICKUP↑':'DROPOFF↓';
+  b.ft=setTimeout(()=>{
+    card.classList.remove('fp','fd');
+    const has=pb.buses[bid]?.onboard.size>0;
+    if(stat){stat.className='bstat'+(has?' ss':'');stat.textContent=has?'IN SERVICE':'IDLE'}
+  },700);
+}
+function addLog(ev){
+  const body=document.getElementById('evlog-body');
+  const d=document.createElement('div');
+  if(ev.type==='reject'){
+    d.className='ev er';
+    d.innerHTML=`<span class="ev-t">${ev.clock}</span><span class="ev-b" style="color:var(--muted)">—</span><span class="ev-ty" style="color:var(--red)">REJECT</span><span class="ev-w">${ev.req}</span>`;
+  } else {
+    d.className='ev '+(ev.type==='pickup'?'ep':'ed');
+    d.innerHTML=`<span class="ev-t">${ev.clock}</span><span class="ev-b">${ev.bus}</span><span class="ev-ty">${ev.type==='pickup'?'PICKUP':'DROP'}</span><span class="ev-w">${ev.type==='pickup'?(ev.wait||0).toFixed(1)+'m':''}</span>`;
+  }
+  body.insertBefore(d,body.firstChild);
+  while(body.children.length>100)body.removeChild(body.lastChild);
+}
+function procEvent(ev){
+  if(ev.type==='reject'){pb.rejected++;addLog(ev);updateKPIs();return}
+  if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),ft:null};
+  const b=pb.buses[ev.bus];
+  if(ev.type==='pickup'){b.onboard.add(ev.req);pb.served++;pb.wSum+=ev.wait||0;pb.wN++;flashBus(ev.bus,'pickup')}
+  else{b.onboard.delete(ev.req);flashBus(ev.bus,'dropoff')}
+  renderSeats(ev.bus);addLog(ev);
+  moveBusOnMap(ev.bus,ev.type,ev.req);
+  updateKPIs();
+}
+function updateKPIs(){
+  document.getElementById('kpi-served').textContent=pb.served;
+  document.getElementById('kpi-rejected').textContent=pb.rejected;
+  const w=pb.wN>0?(pb.wSum/pb.wN).toFixed(1):'—';
+  document.getElementById('kpi-wait').innerHTML=w+'<span class="kpi-u">min</span>';
+  const decided=pb.served+pb.rejected;
+  const rate=decided>0?((pb.served/decided)*100).toFixed(1):'—';
+  document.getElementById('kpi-rate').innerHTML=rate+(rate!=='—'?'<span class="kpi-u">%</span>':'');
+}
+function tick(now){
+  if(pb.paused)return;
+  if(pb.lastMs===null){pb.lastMs=now;pb.raf=requestAnimationFrame(tick);return}
+  const dt=(now-pb.lastMs)/1000;pb.lastMs=now;
+  pb.clock+=pb.spd*5*dt;
+  while(pb.idx<runEvents.length&&runEvents[pb.idx].sm<=pb.clock)procEvent(runEvents[pb.idx++]);
+  document.getElementById('pb-clock').textContent=m2c(Math.min(pb.clock,1020));
+  document.getElementById('pb-period').textContent=period(pb.clock);
+  const scrub=document.getElementById('pb-scrubber');
+  const pct=Math.min(100,(pb.clock/parseFloat(scrub.max||1020))*100).toFixed(1);
+  scrub.value=Math.min(pb.clock,parseFloat(scrub.max));
+  scrub.style.setProperty('--pct',pct+'%');
+  const maxSm=runEvents.length>0?runEvents[runEvents.length-1].sm:1020;
+  if(pb.idx>=runEvents.length&&pb.clock>=maxSm+20){
+    document.getElementById('pb-clock').textContent='22:30';
+    document.getElementById('res-btn').classList.add('done');
+    // Move all buses back toward depot
+    for(const bid in busMarkers){const n=parseInt(bid.replace(/\D/g,''));busMarkers[bid].setIcon(busIconHtml(n,'idle'));busMarkers[bid].setLatLng(DEPOT)}
+    pb.done=true;return;
+  }
+  pb.raf=requestAnimationFrame(tick);
+}
+function startPlayback(){
+  pb={spd:1,clock:0,idx:0,buses:{},served:0,rejected:0,wSum:0,wN:0,raf:null,lastMs:null,done:false,paused:false};
+  document.getElementById('evlog-body').innerHTML='';
+  document.getElementById('res-btn').classList.remove('done');
+  document.getElementById('pause-btn').textContent='⏸';
+  document.querySelectorAll('.spd-btn').forEach(b=>b.classList.toggle('on',+b.dataset.s===1));
+  document.getElementById('kpi-rejected').textContent='0';
+  document.getElementById('kpi-rate').innerHTML='—<span class="kpi-u">%</span>';
+  // Set scrubber range to last event time
+  const maxSm=runEvents.length>0?Math.ceil(runEvents[runEvents.length-1].sm):1020;
+  const scrub=document.getElementById('pb-scrubber');
+  scrub.max=maxSm; scrub.value=0;
+  scrub.style.setProperty('--pct','0%');
+  initBuses();
+  showScreen('playback');
+  setTimeout(()=>{initLeafletMap();pb.raf=requestAnimationFrame(tick)},80);
+}
+function restartReplay(){if(runEvents.length||runMetrics)startPlayback()}
+function setSpd(s){pb.spd=s;document.querySelectorAll('.spd-btn').forEach(b=>b.classList.toggle('on',+b.dataset.s===s))}
+function togglePause(){
+  pb.paused=!pb.paused;
+  document.getElementById('pause-btn').textContent=pb.paused?'▶':'⏸';
+  if(!pb.paused&&!pb.done){pb.lastMs=null;pb.raf=requestAnimationFrame(tick)}
+}
+
+/* ═══ RESULTS ══════════════════════════════════════════ */
+function showResults(){
+  if(pb.raf){cancelAnimationFrame(pb.raf);pb.raf=null}
+  const rawM=runMetrics||{};
+  const m=rawM.metrics||rawM;
+  document.getElementById('res-pol').textContent=pLabel();
+  document.getElementById('res-cfg').textContent=cfgStr();
+
+  const g=(...keys)=>mGet(m,...keys);
+  const fmt=(v,dp=1)=>v!=null?(typeof v==='number'?v.toFixed(dp):String(v)):'—';
+  const fmtInt=(v)=>v!=null?Math.round(v):'—';
+  const fmtPct=(v)=>v!=null?((v>1?v:v*100).toFixed(1)+'%'):'—';
+
+  const svcRaw=g('service_rate','served_rate','acceptance_rate');
+  const svc=svcRaw!=null?(svcRaw>1?svcRaw:svcRaw*100).toFixed(1):'—';
+  const col=svc!=='—'?(parseFloat(svc)>=75?'var(--accent)':parseFloat(svc)>=60?'var(--amber)':'var(--red)'):'var(--muted)';
+
+  const cards=[
+    {lbl:'Service Rate',  val:svc!=='—'?svc+'%':'—',                                              feat:true, col},
+    {lbl:'Mean Wait',     val:fmt(g('mean_wait','avg_wait','mean_wait_min')),                       unit:'min'},
+    {lbl:'p95 Wait',      val:fmt(g('p95_wait','p95_wait_min','wait_p95')),                        unit:'min'},
+    {lbl:'Max Wait',      val:fmt(g('max_wait','max_wait_min')),                                   unit:'min'},
+    {lbl:'Rejected',      val:fmtInt(g('rejected','n_rejected','requests_rejected'))},
+    {lbl:'Violations',    val:fmtInt(g('violations_total','violations','n_violations','total_violations'))},
+    {lbl:'Mean Ride',     val:fmt(g('mean_ride','avg_ride','mean_ride_min')),                      unit:'min'},
+    {lbl:'Deadhead',      val:(()=>{const v=g('deadhead_ratio','deadhead');return v!=null?fmt(v*100,1)+'%':'—'})()},
+  ];
+  document.getElementById('metrics-grid').innerHTML=cards.map(c=>`<div class="mcard${c.feat?' feat':''}"><div class="m-lbl">${c.lbl}</div><div class="m-val"${c.col?` style="color:${c.col}"`:''} >${c.val}</div>${c.unit?`<div class="m-unit">${c.unit}</div>`:''}</div>`).join('');
+
+  drawHist(m);
+  document.getElementById('insight-txt').textContent=INSIGHTS[pKey()]||pLabel();
+  document.getElementById('map-btn').style.display=runHasMap?'':'none';
+  const dbg=document.getElementById('dbg-link');
+  if(runId){dbg.href='/api/debug/'+runId;dbg.style.display=''}
+  showScreen('results');
+}
+function drawHist(m){
+  const svg=document.getElementById('hist-svg');
+  const mw=mGet(m,'mean_wait','avg_wait'),std=mGet(m,'std_wait'),p95=mGet(m,'p95_wait','wait_p95'),mx=mGet(m,'max_wait','max_wait_min');
+  if(!mw){svg.innerHTML=`<text x="50%" y="50%" text-anchor="middle" fill="var(--muted)" font-size="11" font-family="IBM Plex Mono">No wait data</text>`;return}
+  const mean=mw,sigma=std||(p95?(p95-mean)/1.645:mean*0.45)||4;
+  const maxW=Math.max(mx||36,mean+3*sigma,36);
+  const W=400,H=90,N=14,bw=Math.floor((W-20)/N)-2;
+  const g=x=>Math.exp(-.5*((x-mean)/sigma)**2);
+  const bars=Array.from({length:N},(_,i)=>g((i+.5)*maxW/N));
+  const mx2=Math.max(...bars);
+  const rects=bars.map((h,i)=>{const x=10+i*(bw+2),bh=Math.round((h/mx2)*(H-20)),y=H-16-bh,op=.35+.55*(h/mx2);return`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="var(--accent)" opacity="${op.toFixed(2)}"/>`}).join('');
+  const lx=10+(mean/maxW)*(W-20);
+  const line=`<line x1="${lx}" y1="2" x2="${lx}" y2="${H-16}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3,2"/><text x="${lx+3}" y="11" fill="var(--amber)" font-size="9" font-family="IBM Plex Mono">${mean.toFixed(1)}m</text>`;
+  const xlbls=[0,Math.round(maxW/2),Math.round(maxW)].map(v=>`<text x="${10+(v/maxW)*(W-20)}" y="${H-3}" text-anchor="middle" fill="var(--muted)" font-size="9" font-family="IBM Plex Mono">${v}</text>`).join('');
+  svg.innerHTML=rects+line+xlbls;
+}
+
+/* ═══ SCRUBBER ══════════════════════════════════════════ */
+function seekTo(targetMin){
+  if(pb.raf){cancelAnimationFrame(pb.raf);pb.raf=null}
+  // Reset all state
+  pb.clock=0;pb.idx=0;pb.served=0;pb.rejected=0;pb.wSum=0;pb.wN=0;pb.done=false;
+  // Reinit buses silently
+  const n=S.params.fleet;
+  pb.buses={};
+  for(let i=1;i<=n;i++){const bid='Bus-'+i;pb.buses[bid]={onboard:new Set(),ft:null}}
+  document.getElementById('evlog-body').innerHTML='';
+  // Fast-forward to target without logging or animation
+  while(pb.idx<runEvents.length&&runEvents[pb.idx].sm<=targetMin){
+    const ev=runEvents[pb.idx++];
+    if(ev.type==='reject'){pb.rejected++;}
+    else{
+      if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),ft:null};
+      const b=pb.buses[ev.bus];
+      if(ev.type==='pickup'){b.onboard.add(ev.req);pb.served++;pb.wSum+=ev.wait||0;pb.wN++;}
+      else b.onboard.delete(ev.req);
+      renderSeats(ev.bus);
+    }
+  }
+  pb.clock=targetMin;
+  document.getElementById('pb-clock').textContent=m2c(Math.min(pb.clock,1020));
+  document.getElementById('pb-period').textContent=period(pb.clock);
+  const scrub=document.getElementById('pb-scrubber');
+  const pct=Math.min(100,(pb.clock/parseFloat(scrub.max||1020))*100).toFixed(1);
+  scrub.style.setProperty('--pct',pct+'%');
+  // Reposition bus markers
+  if(leafMap){
+    for(const bid in busMarkers){
+      const n=parseInt(bid.replace(/\D/g,''));
+      const has=pb.buses[bid]?.onboard.size>0;
+      busMarkers[bid].setIcon(busIconHtml(n,has?'service':'idle'));
+    }
+  }
+  updateKPIs();
+  if(!pb.paused&&!pb.done){pb.lastMs=null;pb.raf=requestAnimationFrame(tick)}
+}
+function onScrub(v){
+  const target=parseFloat(v);
+  const wasPaused=pb.paused;
+  pb.paused=true; // pause during scrub
+  seekTo(target);
+  pb.paused=wasPaused;
+  if(!pb.paused){pb.lastMs=null;pb.raf=requestAnimationFrame(tick)}
+}
+
+
+function goConfig(){showScreen('config');updateCmd()}
+function replay(){if(runEvents.length||runMetrics)startPlayback()}
+function openMap(){if(runId)window.open('/api/map/'+runId,'_blank')}
+
+/* ═══ INIT ═════════════════════════════════════════════ */
+buildParams();updateCmd();selRL('rl2.0');
+</script>
+</body>
+</html>

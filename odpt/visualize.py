@@ -6,13 +6,38 @@
 from __future__ import annotations
 import json
 import os
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
 
+# route_cache.json lives in the project root (one level above odpt/)
+# ---------------------------------------------------------------------------
+# Route Cache — OSRM road geometries
+# ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Event Logger
-# ---------------------------------------------------------------------------
+def load_route_cache() -> dict:
+    """
+    Load cached OSRM route geometries.
+    Searches several candidate locations so it works regardless of CWD.
+    """
+    _here = Path(__file__).resolve().parent          # odpt/
+    candidates = [
+        _here.parent / "route_cache.json",           # project root  ← most likely
+        _here        / "route_cache.json",           # odpt/
+        Path.cwd().parent / "route_cache.json",      # parent of CWD
+        Path.cwd()        / "route_cache.json",      # CWD itself
+    ]
+    for path in candidates:
+        if path.exists():
+            with open(path, encoding="utf-8") as f:
+                cache = json.load(f)
+            print(f"Loaded route cache: {len(cache)} routes from {path}")
+            return cache
+
+    searched = "\n  ".join(str(p) for p in candidates)
+    print(f"No route_cache.json found. Searched:\n  {searched}")
+    print("Falling back to straight lines.")
+    return {}
 
 @dataclass
 class SimEvent:
@@ -89,28 +114,18 @@ class EventLogger:
 # Route Cache — OSRM road geometries
 # ---------------------------------------------------------------------------
 
-ROUTE_CACHE_PATH = "route_cache.json"
-
-
-def load_route_cache() -> dict:
-    """Load cached OSRM route geometries. Returns dict of "from-to" -> [[lat,lon],...]."""
-    if os.path.exists(ROUTE_CACHE_PATH):
-        with open(ROUTE_CACHE_PATH, encoding="utf-8") as f:
-            cache = json.load(f)
-        print(f"Loaded route cache: {len(cache)} routes from {ROUTE_CACHE_PATH}")
-        return cache
-    return {}
-
 
 def build_route_cache(
     stop_coords: dict,
     osrm_url: str = "http://localhost:5000",
-    output_path: str = ROUTE_CACHE_PATH,
+    output_path: str = None,
 ) -> dict:
     """
     Query OSRM /route endpoint for every unique (a, b) stop pair
     and cache the road geometry. Run this once with OSRM running.
     """
+    if output_path is None:
+        output_path = str(Path(__file__).resolve().parent.parent / "route_cache.json")
     import requests as req_lib
     import time as _time
 
