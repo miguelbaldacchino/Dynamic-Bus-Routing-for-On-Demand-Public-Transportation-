@@ -127,11 +127,15 @@ def _run_worker(run_id: str, cmd: list[str]) -> None:
                     for e in raw_events:
                         t = e.get("type")
                         if t == "pickup":
-                            parsed.append({"type":"pickup","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"],"wait":e.get("wait_time",0)})
+                            parsed.append({"type":"pickup","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"],"wait":e.get("wait_time",0),"t":e.get("time",0)})
                         elif t == "dropoff":
-                            parsed.append({"type":"dropoff","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"]})
+                            parsed.append({"type":"dropoff","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"],"t":e.get("time",0)})
                         elif t == "reject":
-                            parsed.append({"type":"reject","clock":e["clock"],"req":e["req_id"]})
+                            parsed.append({"type":"reject","clock":e["clock"],"req":e["req_id"],"t":e.get("time",0)})
+                        elif t == "depart":
+                            parsed.append({"type":"depart","clock":e["clock"],"bus":e["vehicle"],"from_node":e.get("from_node"),"to_node":e.get("to_node"),"t":e.get("time",0)})
+                        elif t == "arrive":
+                            parsed.append({"type":"arrive","clock":e["clock"],"bus":e["vehicle"],"to_node":e.get("to_node"),"t":e.get("time",0)})
                     if parsed:
                         events = parsed
                 except Exception:
@@ -199,11 +203,15 @@ def _run_worker(run_id: str, cmd: list[str]) -> None:
                         for e in raw_events:
                             t = e.get("type")
                             if t == "pickup":
-                                parsed.append({"type":"pickup","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"],"wait":e.get("wait_time",0)})
+                                parsed.append({"type":"pickup","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"],"wait":e.get("wait_time",0),"t":e.get("time",0)})
                             elif t == "dropoff":
-                                parsed.append({"type":"dropoff","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"]})
+                                parsed.append({"type":"dropoff","clock":e["clock"],"bus":e["vehicle"],"req":e["req_id"],"t":e.get("time",0)})
                             elif t == "reject":
-                                parsed.append({"type":"reject","clock":e["clock"],"req":e["req_id"]})
+                                parsed.append({"type":"reject","clock":e["clock"],"req":e["req_id"],"t":e.get("time",0)})
+                            elif t == "depart":
+                                parsed.append({"type":"depart","clock":e["clock"],"bus":e["vehicle"],"from_node":e.get("from_node"),"to_node":e.get("to_node"),"t":e.get("time",0)})
+                            elif t == "arrive":
+                                parsed.append({"type":"arrive","clock":e["clock"],"bus":e["vehicle"],"to_node":e.get("to_node"),"t":e.get("time",0)})
                         if parsed:
                             events = parsed
                     except Exception:
@@ -302,6 +310,48 @@ def api_map(run_id: str):
         return send_file(run["map_path"])
     except Exception as e:
         return str(e), 500
+
+
+@app.route("/api/geodata/<run_id>")
+def api_geodata(run_id: str):
+    """Node coordinates + OSRM route segments used in this run."""
+    run = RUNS.get(run_id)
+    if not run:
+        return jsonify({"error": "not_found"}), 404
+
+    # ── Stop coordinates ──────────────────────────────────────────────────────
+    stop_coords: dict = {}
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "malta_travel", str(BASE_DIR / "malta_travel.py"))
+        mt = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mt)
+        stop_coords = {str(k): list(v) for k, v in mt.STOP_COORDS.items()}
+    except Exception:
+        pass
+
+    # ── Route cache ───────────────────────────────────────────────────────────
+    route_cache: dict = {}
+    for p in [BASE_DIR.parent / "route_cache.json", BASE_DIR / "route_cache.json"]:
+        if p.exists():
+            try:
+                route_cache = json.loads(p.read_text(encoding="utf-8"))
+                break
+            except Exception:
+                pass
+
+    # Filter to only segments actually used in this run
+    used_pairs: set[str] = set()
+    for ev in run.get("events", []):
+        if ev.get("type") == "depart":
+            fn, tn = ev.get("from_node"), ev.get("to_node")
+            if fn is not None and tn is not None:
+                used_pairs.add(f"{fn}-{tn}")
+
+    filtered = {k: route_cache[k] for k in used_pairs if k in route_cache}
+
+    return jsonify({"stop_coords": stop_coords, "routes": filtered})
 
 
 @app.route("/api/debug/<run_id>")

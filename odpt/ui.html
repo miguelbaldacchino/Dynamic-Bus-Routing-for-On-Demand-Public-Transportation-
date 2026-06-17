@@ -433,6 +433,42 @@ const STOPS=[
 
 /* ═══ STATE ═════════════════════════════════════════════ */
 function mGet(m,...keys){for(const k of keys)if(m[k]!=null)return m[k];return null}
+
+// Geodata (loaded once per run)
+let nodeCoords = {};   // "node_id" → [lat, lng]
+let geoRoutes  = {};   // "from-to" → [[lat,lng],...]
+const BUS_COLORS = ['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#42d4f4','#f032e6','#469990'];
+
+function interpolateRoute(pts, t){
+  if(!pts||pts.length===0) return null;
+  if(t<=0) return pts[0];
+  if(t>=1) return pts[pts.length-1];
+  let total=0;
+  const segs=[];
+  for(let i=1;i<pts.length;i++){
+    const d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
+    segs.push(d); total+=d;
+  }
+  let rem=t*total;
+  for(let i=0;i<segs.length;i++){
+    if(rem<=segs[i]||i===segs.length-1){
+      const f=segs[i]>0?rem/segs[i]:0;
+      return [pts[i][0]+f*(pts[i+1][0]-pts[i][0]), pts[i][1]+f*(pts[i+1][1]-pts[i][1])];
+    }
+    rem-=segs[i];
+  }
+  return pts[pts.length-1];
+}
+
+async function loadGeoData(){
+  if(!runId) return;
+  try{
+    const r=await fetch('/api/geodata/'+runId);
+    const d=await r.json();
+    nodeCoords=d.stop_coords||{};
+    geoRoutes=d.routes||{};
+  }catch(e){ nodeCoords={}; geoRoutes={}; }
+}
 const S={ctor:'greedy',rl:'rl2.0',imp:'ts',demand:'malta',
   params:{fleet:6,capacity:16,requests:400,interArrival:3.0,maxWait:30,rideFactor:2.5,seed:42}};
 let runId=null,runEvents=[],runMetrics=null,runHasMap=false;
@@ -527,6 +563,7 @@ async function loadAndPlay(){
       document.getElementById('ld-cmd').textContent=out;
       return;
     }
+    await loadGeoData();  // fetch node coords + route segments before playback
     startPlayback();
   }catch(e){alert('Failed to load results: '+e.message)}
 }
@@ -606,6 +643,7 @@ function flashBus(bid,type){
     if(stat){stat.className='bstat'+(has?' ss':'');stat.textContent=has?'IN SERVICE':'IDLE'}
   },700);
 }
+function busColor(bid){const n=parseInt((bid||'0').replace(/\D/g,''))-1;return BUS_COLORS[Math.max(0,n)%BUS_COLORS.length]}
 function addLog(ev){
   const body=document.getElementById('evlog-body');
   const d=document.createElement('div');
@@ -620,13 +658,47 @@ function addLog(ev){
   while(body.children.length>100)body.removeChild(body.lastChild);
 }
 function procEvent(ev){
+  // ── depart: start smooth animation along real route ───────────────────────
+  if(ev.type==='depart'){
+    if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),routeLine:null,routePts:null,departT:null,arriveT:null};
+    const b=pb.buses[ev.bus];
+    const key=`${ev.from_node}-${ev.to_node}`;
+    const fromC=nodeCoords[String(ev.from_node)];
+    const toC=nodeCoords[String(ev.to_node)];
+    b.routePts=geoRoutes[key]||(fromC&&toC?[fromC,toC]:null);
+    b.departT=ev.t;
+    b.arriveT=null;
+    // Look ahead for matching arrive to know end time
+    for(let i=pb.idx;i<runEvents.length;i++){
+      if(runEvents[i].type==='arrive'&&runEvents[i].bus===ev.bus){b.arriveT=runEvents[i].t;break}
+    }
+    // Draw route polyline on map
+    if(leafMap&&b.routePts){
+      if(b.routeLine)leafMap.removeLayer(b.routeLine);
+      const color=busColor(ev.bus);
+      b.routeLine=L.polyline(b.routePts,{color,weight:2.5,opacity:0.45,dashArray:'6,5'}).addTo(leafMap);
+    }
+    return;
+  }
+  // ── arrive: snap to destination, clear animation ──────────────────────────
+  if(ev.type==='arrive'){
+    const b=pb.buses[ev.bus];
+    if(b){
+      b.routePts=null;b.departT=null;b.arriveT=null;
+      if(b.routeLine&&leafMap){leafMap.removeLayer(b.routeLine);b.routeLine=null;}
+      const c=nodeCoords[String(ev.to_node)];
+      if(c&&busMarkers[ev.bus])busMarkers[ev.bus].setLatLng(c);
+    }
+    return;
+  }
+  // ── reject ────────────────────────────────────────────────────────────────
   if(ev.type==='reject'){pb.rejected++;addLog(ev);updateKPIs();return}
-  if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),ft:null};
+  // ── pickup / dropoff ──────────────────────────────────────────────────────
+  if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),routeLine:null,routePts:null,departT:null,arriveT:null};
   const b=pb.buses[ev.bus];
   if(ev.type==='pickup'){b.onboard.add(ev.req);pb.served++;pb.wSum+=ev.wait||0;pb.wN++;flashBus(ev.bus,'pickup')}
   else{b.onboard.delete(ev.req);flashBus(ev.bus,'dropoff')}
   renderSeats(ev.bus);addLog(ev);
-  moveBusOnMap(ev.bus,ev.type,ev.req);
   updateKPIs();
 }
 function updateKPIs(){
@@ -644,6 +716,17 @@ function tick(now){
   const dt=(now-pb.lastMs)/1000;pb.lastMs=now;
   pb.clock+=pb.spd*5*dt;
   while(pb.idx<runEvents.length&&runEvents[pb.idx].sm<=pb.clock)procEvent(runEvents[pb.idx++]);
+  // ── Smooth bus movement along real routes ──────────────────────────────────
+  if(leafMap){
+    for(const [bid,b] of Object.entries(pb.buses)){
+      if(b.routePts&&b.departT!==null&&b.arriveT!==null){
+        const span=b.arriveT-b.departT;
+        const t=span>0?Math.max(0,Math.min(1,(pb.clock-b.departT)/span)):1;
+        const pos=interpolateRoute(b.routePts,t);
+        if(pos)busMarkers[bid]?.setLatLng(pos);
+      }
+    }
+  }
   document.getElementById('pb-clock').textContent=m2c(Math.min(pb.clock,1020));
   document.getElementById('pb-period').textContent=period(pb.clock);
   const scrub=document.getElementById('pb-scrubber');
@@ -654,13 +737,20 @@ function tick(now){
   if(pb.idx>=runEvents.length&&pb.clock>=maxSm+20){
     document.getElementById('pb-clock').textContent='22:30';
     document.getElementById('res-btn').classList.add('done');
-    // Move all buses back toward depot
+    // Clean up route lines, return buses to depot
+    if(leafMap){
+      for(const b of Object.values(pb.buses)){if(b.routeLine){leafMap.removeLayer(b.routeLine);b.routeLine=null;}}
+    }
     for(const bid in busMarkers){const n=parseInt(bid.replace(/\D/g,''));busMarkers[bid].setIcon(busIconHtml(n,'idle'));busMarkers[bid].setLatLng(DEPOT)}
     pb.done=true;return;
   }
   pb.raf=requestAnimationFrame(tick);
 }
 function startPlayback(){
+  // Clean up any active route lines from previous run
+  if(leafMap){
+    for(const b of Object.values(pb.buses||{})){if(b.routeLine){leafMap.removeLayer(b.routeLine);}}
+  }
   pb={spd:1,clock:0,idx:0,buses:{},served:0,rejected:0,wSum:0,wN:0,raf:null,lastMs:null,done:false,paused:false};
   document.getElementById('evlog-body').innerHTML='';
   document.getElementById('res-btn').classList.remove('done');
@@ -741,37 +831,58 @@ function drawHist(m){
 /* ═══ SCRUBBER ══════════════════════════════════════════ */
 function seekTo(targetMin){
   if(pb.raf){cancelAnimationFrame(pb.raf);pb.raf=null}
+  // Clean up route lines
+  if(leafMap){for(const b of Object.values(pb.buses||{})){if(b.routeLine){leafMap.removeLayer(b.routeLine);b.routeLine=null;}}}
   // Reset all state
   pb.clock=0;pb.idx=0;pb.served=0;pb.rejected=0;pb.wSum=0;pb.wN=0;pb.done=false;
-  // Reinit buses silently
   const n=S.params.fleet;
   pb.buses={};
-  for(let i=1;i<=n;i++){const bid='Bus-'+i;pb.buses[bid]={onboard:new Set(),ft:null}}
+  for(let i=1;i<=n;i++){const bid='Bus-'+i;pb.buses[bid]={onboard:new Set(),routeLine:null,routePts:null,departT:null,arriveT:null}}
   document.getElementById('evlog-body').innerHTML='';
-  // Fast-forward to target without logging or animation
+  // Fast-forward silently to target
   while(pb.idx<runEvents.length&&runEvents[pb.idx].sm<=targetMin){
     const ev=runEvents[pb.idx++];
     if(ev.type==='reject'){pb.rejected++;}
-    else{
-      if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),ft:null};
+    else if(ev.type==='depart'){
+      if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),routeLine:null,routePts:null,departT:null,arriveT:null};
       const b=pb.buses[ev.bus];
-      if(ev.type==='pickup'){b.onboard.add(ev.req);pb.served++;pb.wSum+=ev.wait||0;pb.wN++;}
-      else b.onboard.delete(ev.req);
-      renderSeats(ev.bus);
+      const key=`${ev.from_node}-${ev.to_node}`;
+      const fromC=nodeCoords[String(ev.from_node)];const toC=nodeCoords[String(ev.to_node)];
+      b.routePts=geoRoutes[key]||(fromC&&toC?[fromC,toC]:null);
+      b.departT=ev.t;b.arriveT=null;
+      for(let i=pb.idx;i<runEvents.length;i++){if(runEvents[i].type==='arrive'&&runEvents[i].bus===ev.bus){b.arriveT=runEvents[i].t;break}}
+    }
+    else if(ev.type==='arrive'){
+      const b=pb.buses[ev.bus];
+      if(b){b.routePts=null;b.departT=null;b.arriveT=null;const c=nodeCoords[String(ev.to_node)];if(c&&busMarkers[ev.bus])busMarkers[ev.bus].setLatLng(c);}
+    }
+    else if(ev.type==='pickup'){
+      if(!pb.buses[ev.bus])pb.buses[ev.bus]={onboard:new Set(),routeLine:null,routePts:null,departT:null,arriveT:null};
+      pb.buses[ev.bus].onboard.add(ev.req);pb.served++;pb.wSum+=ev.wait||0;pb.wN++;renderSeats(ev.bus);
+    }
+    else if(ev.type==='dropoff'){
+      if(pb.buses[ev.bus])pb.buses[ev.bus].onboard.delete(ev.req);renderSeats(ev.bus);
     }
   }
   pb.clock=targetMin;
+  // Redraw active route lines
+  if(leafMap){
+    for(const [bid,b] of Object.entries(pb.buses)){
+      if(b.routePts&&b.departT!==null){
+        const color=busColor(bid);
+        b.routeLine=L.polyline(b.routePts,{color,weight:2.5,opacity:0.45,dashArray:'6,5'}).addTo(leafMap);
+      }
+    }
+  }
   document.getElementById('pb-clock').textContent=m2c(Math.min(pb.clock,1020));
   document.getElementById('pb-period').textContent=period(pb.clock);
   const scrub=document.getElementById('pb-scrubber');
   const pct=Math.min(100,(pb.clock/parseFloat(scrub.max||1020))*100).toFixed(1);
   scrub.style.setProperty('--pct',pct+'%');
-  // Reposition bus markers
   if(leafMap){
-    for(const bid in busMarkers){
+    for(const [bid,b] of Object.entries(pb.buses)){
       const n=parseInt(bid.replace(/\D/g,''));
-      const has=pb.buses[bid]?.onboard.size>0;
-      busMarkers[bid].setIcon(busIconHtml(n,has?'service':'idle'));
+      busMarkers[bid]?.setIcon(busIconHtml(n,b.onboard.size>0?'service':'idle'));
     }
   }
   updateKPIs();
